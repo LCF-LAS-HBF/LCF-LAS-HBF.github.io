@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Time Clock</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 18px; line-height: 1.4; color: #0f2340; background: #ffffff;
+  }
+  .band { padding: 14px 20px 18px; color: #ffffff; background: #0f2340; border-bottom: 5px solid #c9a227; }
+  body.done .band { background: #1c6b3c; }
+  body.saved .band { background: #6b4e00; }
+  .top { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 40px; }
+  .biz { font-size: 14px; font-weight: 600; letter-spacing: .4px; color: #e6c861; text-transform: uppercase; }
+  body.done .biz, body.saved .biz { color: #ffffff; }
+  .lang {
+    font: inherit; font-size: 15px; font-weight: 600; color: #ffffff; background: transparent;
+    border: 1.5px solid #ffffff; border-radius: 20px; padding: 6px 14px; min-height: 40px;
+  }
+  .prop { font-size: 30px; font-weight: 800; line-height: 1.12; margin-top: 8px; overflow-wrap: anywhere; }
+  .status { font-size: 17px; margin-top: 8px; }
+  main { padding: 6px 20px 40px; max-width: 540px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 18px 0 4px; }
+  label { display: block; font-weight: 600; font-size: 17px; margin: 20px 0 8px; }
+  input {
+    width: 100%; font: inherit; font-size: 30px; letter-spacing: 8px; text-align: center; padding: 14px 12px;
+    color: inherit; background: #ffffff; border: 2px solid #7d8a97; border-radius: 10px;
+  }
+  textarea {
+    width: 100%; font: inherit; font-size: 17px; padding: 12px; min-height: 76px; resize: vertical;
+    color: inherit; background: #ffffff; border: 2px solid #7d8a97; border-radius: 10px;
+  }
+  input:focus, textarea:focus, button:focus-visible { outline: 3px solid #c9a227; outline-offset: 2px; }
+  .hint { font-size: 15px; color: #51606e; margin-top: 8px; }
+  .box { margin-top: 18px; padding: 14px 16px; border-radius: 10px; background: #eef1f5; }
+  .box.warn { background: #fff1c9; border-left: 6px solid #c9a227; }
+  .box.bad { background: #ffe1d6; border-left: 6px solid #a8320a; color: #7a1d00; font-weight: 600; }
+  .box.good { background: #e3f3e6; border-left: 6px solid #1c6b3c; }
+  .btn {
+    display: block; width: 100%; margin-top: 16px; padding: 20px 16px; border: 0; border-radius: 12px;
+    font: inherit; font-size: 22px; font-weight: 700; color: #ffffff; background: #0f2340; min-height: 68px;
+  }
+  .btn.green { background: #1c6b3c; }
+  .btn.gold { background: #c9a227; color: #0f2340; }
+  .btn.line { background: #ffffff; color: #0f2340; border: 2px solid #0f2340; }
+  .btn:disabled { opacity: .55; }
+  .gps { margin-top: 20px; font-size: 15px; color: #51606e; }
+  .gps.ok { color: #1c6b3c; }
+  .gps.off { color: #7a1d00; }
+  .wait { margin-top: 10px; font-size: 15px; font-weight: 600; color: #6b4e00; }
+  .link { display: inline-block; margin-top: 22px; padding: 10px 0; font: inherit; font-size: 15px; color: #0f2340; background: none; border: 0; text-decoration: underline; }
+  .line2 { padding: 12px 0; border-bottom: 1px solid #d5dbe1; font-size: 20px; font-weight: 600; }
+  .line2 b { display: block; font-size: 14px; font-weight: 600; color: #51606e; }
+  .office { margin-top: 26px; font-size: 15px; color: #51606e; }
+  .office a { color: #0f2340; font-weight: 600; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+  <div class="band">
+    <div class="top">
+      <span class="biz" id="biz"></span>
+      <button type="button" class="lang" id="lang"></button>
+    </div>
+    <div class="prop" id="prop"></div>
+    <div class="status" id="status"></div>
+  </div>
+  <main>
+    <div class="box" id="msg" hidden></div>
+
+    <div id="pinView" hidden>
+      <label for="pin" id="pinLabel"></label>
+      <input id="pin" type="password" inputmode="numeric" autocomplete="off">
+      <div class="hint" id="pinHint"></div>
+      <button type="button" class="btn" id="pinGo"></button>
+    </div>
+
+    <div id="mainView" hidden>
+      <h1 id="hello"></h1>
+      <div id="buttons"></div>
+      <div id="noteWrap" hidden>
+        <label for="note" id="noteLabel"></label>
+        <textarea id="note" maxlength="300"></textarea>
+      </div>
+      <div class="hint" id="notes"></div>
+      <div class="gps" id="gps"></div>
+      <div class="wait" id="waiting" hidden></div>
+      <button type="button" class="link" id="notMe"></button>
+    </div>
+
+    <div id="doneView" hidden>
+      <div id="lines"></div>
+      <div class="box warn" id="doneNote" hidden></div>
+      <button type="button" class="btn line" id="back"></button>
+    </div>
+
+    <button type="button" class="btn line" id="retry" hidden></button>
+    <div class="office" id="office" hidden></div>
+  </main>
+
+<script>
+  var API = "https://script.google.com/macros/s/AKfycbyQL1tzZ-yeqMYvZF_8q-Tvoj-tPNBem2CCUv-zYMgF9wdajZzBaQbVwbEJf1ywUIkDsA/exec";
+
+  var T = {
+    en: {
+      other: "Español",
+      loading: "Loading...",
+      noCode: "Scan the QR code posted at the property.",
+      NO_PROP: "This QR code is not recognized. Call the office.",
+      PROP_OFF: "This property is not active. Call the office.",
+      BAD_PIN: "That PIN is not correct. Try again.",
+      LOCKED: "Too many wrong PINs. Wait 10 minutes or call the office.",
+      INACTIVE: "Your PIN is turned off. Call the office.",
+      PIN_SETUP: "There is a problem with this PIN. Call the office.",
+      TOO_SOON: "You just recorded a punch. Wait {s} seconds and try again.",
+      STATE_CHANGED: "Your status changed. Check the buttons and tap again.",
+      BUSY: "The system is busy. Try again.",
+      NET_LOAD: "No connection. Check your signal and try again.",
+      BAD_ANSWER: "The time clock did not answer correctly. Call the office.",
+      SERVER: "Something went wrong. Try again or call the office.",
+      OFF_NEW: "No signal, and this phone has not been used with the time clock yet, so it cannot save your punch. Take a photo of this label and send it to the office by WhatsApp with the words Clock in or Clock out.",
+      OFFLINE: "No signal. Your punch will be saved on this phone and sent when the signal returns.",
+      SENT: "Sent to the office: {n}",
+      retry: "Try again",
+      pinLabel: "Your PIN ({n} digits)",
+      pinHint: "{a} of {n} digits entered",
+      pinFormat: "The PIN must be exactly {n} digits. You entered {a}.",
+      pinGo: "Continue",
+      hello: "Hello, {name}",
+      st_out: "You are not clocked in.",
+      st_in: "On the clock. Clocked in: {t}",
+      st_lunch: "On lunch. Started: {t}",
+      st_break: "On break. Started: {t}",
+      st_other: "You are still on the clock at {p}. Clocked in: {t}",
+      stale: "Your last shift has no clock-out. The office will fix it. You can clock in now.",
+      b_in: "Clock in",
+      b_out: "Clock out",
+      b_lunch_start: "Start lunch",
+      b_lunch_end: "End lunch",
+      b_break_start: "Start break",
+      b_break_end: "End break",
+      b_switch: "Clock out of {p} and clock in here",
+      b_switch_las: "Move to this property (the clock keeps running)",
+      b_out_other: "Clock out of {p}",
+      noteLabel: "What was done (optional). It is saved when you clock out.",
+      n_lunch: "Lunch is unpaid.",
+      n_breakPaid: "Break: paid for the first {m} minutes. After that it is unpaid until you tap End break.",
+      n_breakUnpaid: "Break: unpaid. Your paid break for today is already used.",
+      n_paidUntil: "This break is paid until {t}. After that it is unpaid until you tap End break.",
+      n_thisUnpaid: "This break is unpaid.",
+      gpsWait: "Finding your location...",
+      gpsOk: "Location found.",
+      gpsOff: "Location is off. Your punch will still be saved, and the office will review it.",
+      saving: "Saving...",
+      waiting: "Saved on this phone, waiting to be sent: {n}",
+      d_in: "Clocked in",
+      d_out: "Clocked out",
+      d_lunch_start: "Lunch started",
+      d_lunch_end: "Lunch ended",
+      d_break_start: "Break started",
+      d_break_end: "Break ended",
+      d_switch: "Clocked in",
+      d_out_other: "Clocked out",
+      d_saved: "Saved on this phone",
+      l_what: "Punch",
+      l_time: "Time",
+      l_prop: "Property",
+      l_who: "Name",
+      l_hours_Staff: "Paid hours this shift",
+      l_hours_LAS: "Hours this shift",
+      l_hours_Vendor: "Hours on site",
+      l_unpaid: "Unpaid break time",
+      min: "{m} min",
+      offsite: "This was recorded away from the property. The office will review it.",
+      offNote: "No signal. This punch is saved on this phone and will be sent when the signal returns. If it has not been sent by the end of the day, open this page again where there is a signal.",
+      sentNote: "The signal is back. This punch has been sent to the office.",
+      back: "Back",
+      notMe: "Not {name}? Change PIN",
+      office: "Office: "
+    },
+    es: {
+      other: "English",
+      loading: "Cargando...",
+      noCode: "Escanee el código QR colocado en la propiedad.",
+      NO_PROP: "Este código QR no se reconoce. Llame a la oficina.",
+      PROP_OFF: "Esta propiedad no está activa. Llame a la oficina.",
+      BAD_PIN: "Ese PIN no es correcto. Intente de nuevo.",
+      LOCKED: "Demasiados PIN incorrectos. Espere 10 minutos o llame a la oficina.",
+      INACTIVE: "Su PIN está desactivado. Llame a la oficina.",
+      PIN_SETUP: "Hay un problema con este PIN. Llame a la oficina.",
+      TOO_SOON: "Acaba de registrar una marcación. Espere {s} segundos e intente de nuevo.",
+      STATE_CHANGED: "Su estado cambió. Revise los botones y toque de nuevo.",
+      BUSY: "El sistema está ocupado. Intente de nuevo.",
+      NET_LOAD: "Sin conexión. Revise su señal e intente de nuevo.",
+      BAD_ANSWER: "El reloj no respondió correctamente. Llame a la oficina.",
+      SERVER: "Algo salió mal. Intente de nuevo o llame a la oficina.",
+      OFF_NEW: "No hay señal y este teléfono aún no se ha usado con el reloj, así que no puede guardar su marcación. Tome una foto de esta etiqueta y envíela a la oficina por WhatsApp con la palabra Entrada o Salida.",
+      OFFLINE: "No hay señal. Su marcación se guardará en este teléfono y se enviará cuando vuelva la señal.",
+      SENT: "Enviado a la oficina: {n}",
+      retry: "Intentar de nuevo",
+      pinLabel: "Su PIN ({n} dígitos)",
+      pinHint: "{a} de {n} dígitos",
+      pinFormat: "El PIN debe tener exactamente {n} dígitos. Usted escribió {a}.",
+      pinGo: "Continuar",
+      hello: "Hola, {name}",
+      st_out: "No ha marcado entrada.",
+      st_in: "En turno. Entrada: {t}",
+      st_lunch: "En almuerzo. Inicio: {t}",
+      st_break: "En descanso. Inicio: {t}",
+      st_other: "Sigue en turno en {p}. Entrada: {t}",
+      stale: "Su último turno no tiene salida. La oficina lo corregirá. Ya puede marcar entrada.",
+      b_in: "Marcar entrada",
+      b_out: "Marcar salida",
+      b_lunch_start: "Iniciar almuerzo",
+      b_lunch_end: "Terminar almuerzo",
+      b_break_start: "Iniciar descanso",
+      b_break_end: "Terminar descanso",
+      b_switch: "Marcar salida de {p} y entrada aquí",
+      b_switch_las: "Pasar a esta propiedad (el reloj sigue corriendo)",
+      b_out_other: "Marcar salida de {p}",
+      noteLabel: "Qué se hizo (opcional). Se guarda cuando marca la salida.",
+      n_lunch: "El almuerzo no se paga.",
+      n_breakPaid: "Descanso: se pagan los primeros {m} minutos. Después no se paga hasta que toque Terminar descanso.",
+      n_breakUnpaid: "Descanso: no se paga. Ya usó su descanso pagado de hoy.",
+      n_paidUntil: "Este descanso se paga hasta: {t}. Después no se paga hasta que toque Terminar descanso.",
+      n_thisUnpaid: "Este descanso no se paga.",
+      gpsWait: "Buscando su ubicación...",
+      gpsOk: "Ubicación encontrada.",
+      gpsOff: "La ubicación está apagada. Su marcación se guardará y la oficina la revisará.",
+      saving: "Guardando...",
+      waiting: "Guardado en este teléfono, pendiente de enviar: {n}",
+      d_in: "Entrada marcada",
+      d_out: "Salida marcada",
+      d_lunch_start: "Almuerzo iniciado",
+      d_lunch_end: "Almuerzo terminado",
+      d_break_start: "Descanso iniciado",
+      d_break_end: "Descanso terminado",
+      d_switch: "Entrada marcada",
+      d_out_other: "Salida marcada",
+      d_saved: "Guardado en este teléfono",
+      l_what: "Marcación",
+      l_time: "Hora",
+      l_prop: "Propiedad",
+      l_who: "Nombre",
+      l_hours_Staff: "Horas pagadas de este turno",
+      l_hours_LAS: "Horas de este turno",
+      l_hours_Vendor: "Horas en el sitio",
+      l_unpaid: "Tiempo de descanso sin pago",
+      min: "{m} min",
+      offsite: "Esto se registró fuera de la propiedad. La oficina lo revisará.",
+      offNote: "No hay señal. Esta marcación está guardada en este teléfono y se enviará cuando vuelva la señal. Si al final del día no se ha enviado, abra esta página otra vez donde haya señal.",
+      sentNote: "Volvió la señal. Esta marcación ya se envió a la oficina.",
+      back: "Volver",
+      notMe: "¿No es {name}? Cambiar PIN",
+      office: "Oficina: "
+    }
+  };
+  var DAYS = { en: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], es: ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"] };
+  var MONTHS = {
+    en: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+    es: ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"]
+  };
+
+  // Everything the page knows right now. render() draws the screen from this.
+  var S = {
+    lang: "en", code: "", pin: "", tok: "", view: "loading", info: null, done: null,
+    msg: null, retry: null, gps: null, gpsAt: 0, gpsState: "wait", busy: "", pending: null, loadedAt: 0,
+    offline: false, queue: [], me: null, local: null, lastTap: 0, sending: false
+  };
+
+  function el(id) { return document.getElementById(id); }
+  function show(id, on) { el(id).hidden = !on; }
+  function recall(k) { try { return window.localStorage.getItem("lasclock." + k) || ""; } catch (e) { return ""; } }
+  function remember(k, v) { try { window.localStorage.setItem("lasclock." + k, v); } catch (e) {} }
+  function forget(k) { try { window.localStorage.removeItem("lasclock." + k); } catch (e) {} }
+  function recallObj(k, fallback) { try { var v = JSON.parse(recall(k)); return v === null || v === undefined ? fallback : v; } catch (e) { return fallback; } }
+  function rememberObj(k, v) { remember(k, JSON.stringify(v)); }
+  function nowMs() { return new Date().getTime(); }
+
+  function t(key, vars) {
+    var s = (T[S.lang] && T[S.lang][key]) || T.en[key] || key;
+    if (vars) { for (var k in vars) { s = s.split("{" + k + "}").join(String(vars[k])); } }
+    return s;
+  }
+
+  function two(n) { return (n < 10 ? "0" : "") + n; }
+  function parts(w) {
+    return { y: +w.substr(0, 4), mo: +w.substr(5, 2), d: +w.substr(8, 2), h: +w.substr(11, 2), mi: +w.substr(14, 2) };
+  }
+  // The phone's own clock, in the same form the Sheet sends times: 2026-10-04T07:02
+  function phoneWall(ms) {
+    var d = new Date(ms);
+    return d.getFullYear() + "-" + two(d.getMonth() + 1) + "-" + two(d.getDate()) + "T" + two(d.getHours()) + ":" + two(d.getMinutes());
+  }
+  function clock(w) {
+    var p = parts(w), h = p.h % 12;
+    if (h === 0) { h = 12; }
+    var ap = p.h < 12 ? (S.lang === "es" ? "a. m." : "AM") : (S.lang === "es" ? "p. m." : "PM");
+    return h + ":" + two(p.mi) + " " + ap;
+  }
+  function day(w) {
+    var p = parts(w), wd = new Date(Date.UTC(p.y, p.mo - 1, p.d)).getUTCDay();
+    return S.lang === "es"
+      ? DAYS.es[wd] + ", " + p.d + " " + MONTHS.es[p.mo - 1]
+      : DAYS.en[wd] + ", " + MONTHS.en[p.mo - 1] + " " + p.d;
+  }
+  // Time alone when it is today at the property; otherwise the day too.
+  function when(w, now) {
+    if (!w) { return ""; }
+    return (now && w.substr(0, 10) === now.substr(0, 10)) ? clock(w) : day(w) + ", " + clock(w);
+  }
+  function firstName(n) { return String(n || "").split(" ")[0]; }
+  function digits(v) { return String(v || "").replace(/[^0-9]/g, ""); }
+
+  /* ---------- the same button rules the Sheet uses, for when there is no signal ---------- */
+
+  function actionsFor(local, type, code) {
+    if (!local || local.status === "out" || !local.at) { return ["in"]; }
+    if (local.at.code !== code) { return ["switch", "out_other"]; }
+    if (type !== "Staff") { return ["out"]; }
+    if (local.status === "in") { return ["lunch_start", "break_start", "out"]; }
+    if (local.status === "lunch") { return ["lunch_end", "out"]; }
+    return ["break_end", "out"];
+  }
+  function afterAction(local, action, prop, ms) {
+    var w = phoneWall(ms);
+    if (action === "in" || action === "switch") { return { status: "in", at: { code: prop.code, name: prop.name }, since: w, shiftSince: w }; }
+    if (action === "out" || action === "out_other") { return { status: "out", at: null, since: "", shiftSince: "" }; }
+    var next = { status: "in", at: local.at, since: local.shiftSince || local.since, shiftSince: local.shiftSince || local.since };
+    if (action === "lunch_start") { next.status = "lunch"; next.since = w; }
+    if (action === "break_start") { next.status = "break"; next.since = w; }
+    return next;
+  }
+  function localState() {
+    var L = S.local || { status: "out", at: null, since: "" };
+    return {
+      status: L.status, here: !L.at || L.at.code === S.code, at: L.at, since: L.since || "",
+      actions: actionsFor(L, S.me ? S.me.type : "Staff", S.code), nextBreakPaid: true, paidUntil: "", stale: false, guess: true
+    };
+  }
+
+  /* ---------- drawing ---------- */
+
+  function render() {
+    var I = S.info || {};
+    document.documentElement.lang = S.lang;
+    document.body.className = S.view === "done" ? ((S.done && S.done.saved && !S.done.sent) ? "saved" : "done") : "";
+    el("lang").textContent = t("other");
+    el("biz").textContent = I.biz || "";
+    el("prop").textContent = I.prop ? I.prop.name : "";
+    document.title = (I.prop ? I.prop.name + " - " : "") + (I.biz || "Time Clock");
+
+    var m = S.msg;
+    if (!m && S.offline && S.view === "main") { m = { key: "OFFLINE", kind: "warn" }; }
+    if (m) {
+      el("msg").textContent = t(m.key, m.vars);
+      el("msg").className = "box " + (m.kind || "");
+    }
+    show("msg", !!m);
+    show("retry", !!S.retry);
+    el("retry").textContent = t("retry");
+
+    show("pinView", S.view === "pin");
+    show("mainView", S.view === "main");
+    show("doneView", S.view === "done");
+
+    var status = "";
+    if (S.view === "loading") { status = t("loading"); }
+    if (S.view === "pin") { drawPin(I); }
+    if (S.view === "main") { status = drawMain(I); }
+    if (S.view === "done") { status = drawDone(I); }
+    el("status").textContent = status;
+
+    show("office", !!I.phone && S.view !== "loading");
+    if (I.phone) {
+      var o = el("office");
+      o.textContent = t("office");
+      var a = document.createElement("a");
+      a.href = "tel:" + String(I.phone).replace(/[^0-9+]/g, "");
+      a.textContent = I.phone;
+      o.appendChild(a);
+    }
+  }
+
+  function drawPin(I) {
+    var n = I.pinLen || 4;
+    el("pinLabel").textContent = t("pinLabel", { n: n });
+    el("pin").maxLength = n;
+    el("pinHint").textContent = t("pinHint", { a: digits(el("pin").value).length, n: n });
+    el("pinGo").textContent = S.busy ? t("loading") : t("pinGo");
+    el("pinGo").disabled = !!S.busy;
+  }
+
+  function drawMain(I) {
+    var st = I.state, name = firstName(I.worker.name);
+    el("hello").textContent = t("hello", { name: name });
+    el("notMe").textContent = t("notMe", { name: name });
+
+    var host = el("buttons");
+    host.innerHTML = "";
+    for (var i = 0; i < st.actions.length; i++) { host.appendChild(button(st.actions[i], st, i, I.worker.type)); }
+
+    var leaving = st.actions.indexOf("out") !== -1 || st.actions.indexOf("out_other") !== -1 || st.actions.indexOf("switch") !== -1;
+    show("noteWrap", leaving && I.askNote !== false);
+    el("noteLabel").textContent = t("noteLabel");
+
+    var notes = [];
+    if (!st.guess) {
+      if (st.actions.indexOf("lunch_start") !== -1 && !I.lunchPaid) { notes.push(t("n_lunch")); }
+      if (st.actions.indexOf("break_start") !== -1) {
+        notes.push(st.nextBreakPaid ? t("n_breakPaid", { m: I.breakMin }) : t("n_breakUnpaid"));
+      }
+      if (st.status === "break" && st.here) {
+        notes.push(st.paidUntil ? t("n_paidUntil", { t: clock(st.paidUntil) }) : t("n_thisUnpaid"));
+      }
+    }
+    el("notes").textContent = notes.join(" ");
+    show("notes", notes.length > 0);
+
+    var g = el("gps");
+    g.className = "gps" + (S.gpsState === "ok" ? " ok" : S.gpsState === "off" ? " off" : "");
+    g.textContent = S.gpsState === "ok" ? t("gpsOk") : S.gpsState === "off" ? t("gpsOff") : t("gpsWait");
+
+    el("waiting").textContent = t("waiting", { n: S.queue.length });
+    show("waiting", S.queue.length > 0);
+
+    if (st.status === "out") { return st.stale ? t("stale") : t("st_out"); }
+    var since = when(st.since, I.now || phoneWall(nowMs()));
+    if (!st.here) { return t("st_other", { p: st.at.name, t: since }); }
+    return t("st_" + st.status, { t: since });
+  }
+
+  function button(action, st, index, type) {
+    var b = document.createElement("button");
+    b.type = "button";
+    var look = "";
+    if (action === "in" || action === "switch" || action === "lunch_end" || action === "break_end") { look = "green"; }
+    else if (action === "lunch_start" || action === "break_start") { look = "gold"; }
+    else if (index > 0) { look = "line"; }
+    b.className = "btn " + look;
+    b.id = "b_" + action;
+    var key = (action === "switch" && type === "LAS") ? "b_switch_las" : "b_" + action;
+    var label = t(key, { p: st.at ? st.at.name : "" });
+    b.textContent = S.busy === action ? (S.gpsState === "wait" ? t("gpsWait") : t("saving")) : label;
+    b.disabled = !!S.busy;
+    b.onclick = function () { act(action); };
+    return b;
+  }
+
+  function drawDone(I) {
+    var d = S.done, host = el("lines");
+    host.innerHTML = "";
+    var rows = [];
+    if (d.saved) { rows.push([t("l_what"), t("d_" + d.action)]); }
+    rows.push([t("l_time"), day(d.time) + ", " + clock(d.time)]);
+    rows.push([t("l_prop"), d.prop]);
+    rows.push([t("l_who"), I.worker.name]);
+    if (d.hours !== null && d.hours !== undefined) { rows.push([t("l_hours_" + (I.worker.type || "Staff")), Number(d.hours).toFixed(2)]); }
+    if (d.unpaidBreakMin > 0) { rows.push([t("l_unpaid"), t("min", { m: d.unpaidBreakMin })]); }
+    for (var i = 0; i < rows.length; i++) {
+      var line = document.createElement("div");
+      line.className = "line2";
+      var b = document.createElement("b");
+      b.textContent = rows[i][0];
+      line.appendChild(b);
+      line.appendChild(document.createTextNode(rows[i][1]));
+      host.appendChild(line);
+    }
+    var note = "";
+    if (d.saved) { note = d.sent ? t("sentNote") : t("offNote"); }
+    else if (d.noGps) { note = t("gpsOff"); }
+    else if (d.offsite) { note = t("offsite"); }
+    el("doneNote").textContent = note;
+    el("doneNote").className = "box " + (d.saved && d.sent ? "good" : "warn");
+    show("doneNote", !!note);
+    el("back").textContent = t("back");
+    if (d.saved && !d.sent) { return t("d_saved"); }
+    return t("d_" + d.action);
+  }
+
+  /* ---------- talking to the Sheet ---------- */
+
+  function post(body, onAnswer, onFail, limitMs) {
+    var ctrl = (typeof AbortController !== "undefined") ? new AbortController() : null;
+    var timer = setTimeout(function () { if (ctrl) { ctrl.abort(); } }, limitMs || 30000);
+    var opts = { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(body), redirect: "follow" };
+    if (ctrl) { opts.signal = ctrl.signal; }
+    fetch(API, opts)
+      .then(function (r) { return r.text(); })
+      .then(function (text) {
+        clearTimeout(timer);
+        var j;
+        try { j = JSON.parse(text); } catch (e) { j = { ok: false, code: "BAD_ANSWER" }; }
+        onAnswer(j);
+      })
+      .then(null, function () { clearTimeout(timer); onFail(); });
+  }
+
+  function keep(r) {
+    // Keep what the answer says about the business, property, worker and status,
+    // and save enough of it on the phone to work later with no signal.
+    var I = S.info || {};
+    var keys = ["biz", "phone", "pinLen", "lunchPaid", "breakMin", "askNote", "prop", "worker", "state", "now"];
+    for (var i = 0; i < keys.length; i++) { if (r[keys[i]] !== undefined) { I[keys[i]] = r[keys[i]]; } }
+    S.info = I;
+    if (r.tok) { S.tok = r.tok; remember("tok", r.tok); }
+    if (r.biz !== undefined) { rememberObj("cfg", { biz: I.biz, phone: I.phone, pinLen: I.pinLen, askNote: I.askNote }); }
+    if (r.prop) { var names = recallObj("props", {}); names[r.prop.code] = r.prop.name; rememberObj("props", names); }
+    if (r.worker) { S.me = r.worker; rememberObj("me", r.worker); }
+    if (r.state) {
+      S.local = { status: r.state.status, at: r.state.at, since: r.state.since, shiftSince: r.state.status === "in" ? r.state.since : "" };
+      rememberObj("local", S.local);
+    }
+  }
+
+  function pinTrouble(code) { return code === "BAD_PIN" || code === "INACTIVE" || code === "PIN_SETUP" || code === "LOCKED"; }
+
+  function toPin(code) {
+    if (code !== "LOCKED") { forget("pin"); forget("tok"); S.pin = ""; S.tok = ""; }
+    el("pin").value = "";
+    S.view = "pin"; S.msg = { key: code, kind: "bad" }; S.retry = null; S.offline = false; render();
+  }
+
+  function boot() {
+    S.view = "loading"; S.msg = null; S.retry = null; render();
+    post({ op: "boot", p: S.code }, function (r) {
+      keep(r);
+      if (!r.ok) { S.view = "stop"; S.msg = { key: T.en[r.code] ? r.code : "SERVER", kind: "bad" }; render(); return; }
+      S.view = "pin"; render();
+      el("pin").focus();
+    }, function () {
+      useSaved();
+      S.view = "stop"; S.msg = { key: "OFF_NEW", kind: "bad" }; S.retry = boot; render();
+    });
+  }
+
+  // What this phone remembers from earlier visits, for when the Sheet cannot be reached.
+  function useSaved() {
+    var cfg = recallObj("cfg", {}), names = recallObj("props", {});
+    S.info = {
+      biz: cfg.biz || "", phone: cfg.phone || "", pinLen: cfg.pinLen || 4, askNote: cfg.askNote,
+      prop: { code: S.code, name: names[S.code] || S.code }, worker: S.me, now: ""
+    };
+  }
+
+  function goOffline() {
+    useSaved();
+    S.info.state = localState();
+    S.offline = true; S.busy = ""; S.view = "main"; S.msg = null; S.retry = null;
+    render();
+  }
+
+  // Send anything saved on the phone, then ask the Sheet for the current status.
+  function refresh(fromPinForm) {
+    if (!mine().length) { getState(fromPinForm); return; }
+    if (!fromPinForm) { S.view = "loading"; S.retry = null; S.msg = null; render(); }
+    sendQueue(function (result) {
+      if (result === "net") { if (S.me && !fromPinForm) { goOffline(); } else { getState(fromPinForm); } return; }
+      if (result === "pin") { return; }
+      getState(fromPinForm);
+    });
+  }
+
+  // The saved punches that belong to the person signed in on this phone right now.
+  function mine() {
+    var out = [], who = S.me ? S.me.name : "";
+    for (var i = 0; i < S.queue.length; i++) { if (!S.queue[i].who || S.queue[i].who === who) { out.push(S.queue[i]); } }
+    return out;
+  }
+
+  function sendQueue(after) {
+    if (S.sending) { return; }
+    S.sending = true;
+    var batch = mine().slice(0, 50);
+    post({ op: "sync", p: S.code, pin: S.pin, tok: S.tok, sentAt: nowMs(), items: batch }, function (r) {
+      S.sending = false;
+      if (!r.ok) {
+        if (pinTrouble(r.code)) { keep(r); toPin(r.code); after("pin"); return; }
+        after("refused");
+        return;
+      }
+      var gone = {}, n = 0;
+      for (var i = 0; i < (r.results || []).length; i++) {
+        if (r.results[i].ok || r.results[i].drop) { gone[r.results[i].rid] = true; if (r.results[i].ok) { n++; } }
+      }
+      var left = [];
+      for (i = 0; i < S.queue.length; i++) { if (!gone[S.queue[i].rid]) { left.push(S.queue[i]); } }
+      S.queue = left; rememberObj("queue", left);
+      keep(r);
+      S.offline = false;
+      after("ok", n);
+    }, function () { S.sending = false; after("net"); }, 20000);
+  }
+
+  function getState(fromPinForm) {
+    S.busy = fromPinForm ? "pin" : "";
+    if (!fromPinForm) { S.view = "loading"; S.retry = null; S.msg = null; }
+    render();
+    post({ op: "state", p: S.code, pin: S.pin, tok: S.tok }, function (r) {
+      S.busy = "";
+      keep(r);
+      if (r.ok) {
+        remember("pin", S.pin);
+        S.loadedAt = nowMs(); S.offline = false;
+        S.view = "main"; S.msg = null; S.retry = null; S.done = null; render();
+        trySend();
+        return;
+      }
+      if (pinTrouble(r.code)) { toPin(r.code); return; }
+      S.view = "stop"; S.msg = { key: T.en[r.code] ? r.code : "SERVER", kind: "bad" }; render();
+    }, function () {
+      S.busy = "";
+      if (fromPinForm) { S.msg = { key: "NET_LOAD", kind: "bad" }; render(); return; }
+      if (S.me && S.tok) { goOffline(); return; }
+      useSaved();
+      S.view = "stop"; S.msg = { key: "OFF_NEW", kind: "bad" }; S.retry = function () { refresh(false); }; render();
+    });
+  }
+
+  function submitPin() {
+    if (S.busy) { return; }
+    var n = (S.info && S.info.pinLen) || 4;
+    var raw = String(el("pin").value || "");
+    var v = digits(raw);
+    if (v.length !== n || v !== raw) {
+      S.msg = { key: "pinFormat", vars: { n: n, a: raw.length }, kind: "bad" }; render();
+      return;
+    }
+    S.pin = v; S.msg = null;
+    getState(true);
+  }
+
+  function newId() {
+    var s = "", abc = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+    for (var i = 0; i < 20; i++) { s += abc.charAt(Math.floor(Math.random() * abc.length)); }
+    return s;
+  }
+
+  function act(action) {
+    if (S.busy) { return; }
+    var tapped = nowMs();
+    if (S.offline && tapped - S.lastTap < 60000) {
+      S.msg = { key: "TOO_SOON", vars: { s: 60 - Math.floor((tapped - S.lastTap) / 1000) }, kind: "warn" }; render();
+      return;
+    }
+    // A second tap on the same button after a weak signal re-sends the same punch, not a new one.
+    if (!S.pending || S.pending.action !== action) { S.pending = { action: action, rid: newId(), t: tapped }; }
+    S.busy = action; S.msg = null;
+    // A location found more than a minute ago may be from somewhere else, so it is found again.
+    if (S.gpsState !== "wait" && tapped - S.gpsAt > 60000) { locate(); }
+    render();
+    (function wait() {
+      if (S.gpsState === "wait" && nowMs() - tapped < 10000) { setTimeout(wait, 300); return; }
+      render();
+      send(action);
+    })();
+  }
+
+  function leaving(action) { return action === "out" || action === "out_other" || action === "switch"; }
+
+  function send(action) {
+    var st = S.info.state;
+    var body = { op: "punch", p: S.code, pin: S.pin, tok: S.tok, action: action, rid: S.pending.rid };
+    if (S.gps) { body.lat = S.gps.lat; body.lng = S.gps.lng; body.acc = S.gps.acc; }
+    if (leaving(action)) { body.note = String(el("note").value || "").trim(); }
+    if (st && st.at) { body.at = st.at.code; }
+    if (S.offline) { saveOnPhone(action, body); return; }
+    post(body, function (r) {
+      S.busy = "";
+      keep(r);
+      if (r.ok) {
+        S.pending = null; S.lastTap = nowMs(); el("note").value = "";
+        S.done = r.done; S.view = "done"; S.msg = null; render();
+        window.scrollTo(0, 0);
+        return;
+      }
+      S.pending = null;
+      if (pinTrouble(r.code)) { toPin(r.code); return; }
+      if (r.code === "TOO_SOON") { S.msg = { key: "TOO_SOON", vars: { s: r.wait }, kind: "warn" }; render(); return; }
+      if (r.code === "STATE_CHANGED") { S.msg = { key: "STATE_CHANGED", kind: "warn" }; render(); return; }
+      S.msg = { key: T.en[r.code] ? r.code : "SERVER", kind: "bad" }; render();
+    }, function () {
+      // The signal dropped. Keep the punch on the phone; the Sheet will not count it twice.
+      saveOnPhone(action, body);
+    }, 15000);
+  }
+
+  function saveOnPhone(action, body) {
+    var item = { rid: body.rid, p: S.code, action: action, t: S.pending.t, at: body.at || "", who: S.me ? S.me.name : "" };
+    if (body.lat !== undefined) { item.lat = body.lat; item.lng = body.lng; item.acc = body.acc; }
+    if (body.note) { item.note = body.note; }
+    S.queue.push(item); rememberObj("queue", S.queue);
+    var prop = S.info.prop, st = S.info.state;
+    var shownProp = (action === "out_other" && st && st.at) ? st.at.name : prop.name;
+    S.local = afterAction(S.local || { status: "out", at: null }, action, prop, item.t);
+    rememberObj("local", S.local);
+    S.lastTap = item.t; S.pending = null; S.busy = ""; S.offline = true; el("note").value = "";
+    S.done = { action: action, time: phoneWall(item.t), prop: shownProp, saved: true, sent: false, rid: item.rid, hours: null, unpaidBreakMin: 0 };
+    S.view = "done"; S.msg = null; render();
+    window.scrollTo(0, 0);
+  }
+
+  // Runs every 20 seconds and when the phone says the signal is back.
+  function trySend() {
+    if (!mine().length || S.busy || S.sending || !S.pin || !S.me) { return; }
+    if (document.visibilityState && document.visibilityState !== "visible") { return; }
+    sendQueue(function (result, n) {
+      if (result !== "ok") { return; }
+      if (S.view === "done" && S.done && S.done.saved) {
+        var still = false;
+        for (var i = 0; i < S.queue.length; i++) { if (S.queue[i].rid === S.done.rid) { still = true; } }
+        S.done.sent = !still;
+        render();
+        return;
+      }
+      if (S.view === "main") { S.msg = n ? { key: "SENT", vars: { n: n }, kind: "good" } : null; S.info.state = S.info.state || localState(); render(); }
+    });
+  }
+
+  function locate() {
+    if (!navigator.geolocation) { S.gpsState = "off"; return; }
+    S.gpsState = "wait"; S.gps = null;
+    navigator.geolocation.getCurrentPosition(function (p) {
+      S.gps = { lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy };
+      S.gpsState = "ok"; S.gpsAt = nowMs();
+      if (S.view === "main" && !S.busy) { render(); }
+    }, function () {
+      S.gps = null; S.gpsState = "off"; S.gpsAt = nowMs();
+      if (S.view === "main" && !S.busy) { render(); }
+    }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+  }
+
+  function start() {
+    var saved = recall("lang");
+    var nav = String(navigator.language || "").toLowerCase();
+    S.lang = saved === "es" || saved === "en" ? saved : (nav.indexOf("es") === 0 ? "es" : "en");
+
+    el("lang").onclick = function () { S.lang = S.lang === "es" ? "en" : "es"; remember("lang", S.lang); render(); };
+    el("pinGo").onclick = submitPin;
+    el("pin").oninput = function () {
+      var n = (S.info && S.info.pinLen) || 4;
+      var raw = String(el("pin").value || "");
+      el("pinHint").textContent = t("pinHint", { a: digits(raw).length, n: n });
+      // The last digit sends the PIN, so there is no extra tap.
+      if (raw.length === n && digits(raw) === raw) { submitPin(); }
+    };
+    el("pin").onkeydown = function (ev) { if (ev.key === "Enter") { submitPin(); } };
+    el("retry").onclick = function () { if (S.retry) { S.retry(); } };
+    el("back").onclick = function () { locate(); refresh(false); };
+    el("notMe").onclick = function () {
+      // Punches still waiting on this phone stay saved under the name of the person who made them.
+      forget("pin"); forget("tok"); forget("me"); forget("local");
+      S.pin = ""; S.tok = ""; S.me = null; S.local = null; S.offline = false;
+      el("pin").value = ""; S.view = "pin"; S.msg = null; render(); el("pin").focus();
+    };
+
+    // The saved copy of this page is what opens when there is no signal.
+    if ("serviceWorker" in navigator) {
+      try { navigator.serviceWorker.register("sw.js").then(null, function () {}); } catch (e) {}
+    }
+
+    // Coming back to a page that was left open: show the current status, not the old one.
+    document.addEventListener("visibilitychange", function () {
+      if (document.visibilityState !== "visible" || S.busy || !S.pin) { return; }
+      if ((S.view === "main" || S.view === "done") && nowMs() - S.loadedAt > 60000 && !(S.done && S.done.saved && !S.done.sent)) { locate(); refresh(false); }
+    });
+    window.addEventListener("online", trySend);
+    setInterval(trySend, 20000);
+
+    var q = String(window.location.search || "");
+    var m = /[?&]p=([^&#]*)/.exec(q);
+    S.code = m ? decodeURIComponent(m[1]).toUpperCase().replace(/[^A-Z0-9]/g, "") : "";
+    if (!S.code) { S.view = "stop"; S.msg = { key: "noCode", kind: "warn" }; render(); return; }
+
+    locate();
+    S.pin = recall("pin");
+    S.tok = recall("tok");
+    S.me = recallObj("me", null);
+    S.local = recallObj("local", null);
+    S.queue = recallObj("queue", []);
+    if (S.pin) { refresh(false); } else { boot(); }
+  }
+
+  start();
+</script>
+</body>
+</html>

@@ -48,6 +48,7 @@
   .btn.green { background: #1c6b3c; }
   .btn.gold { background: #c9a227; color: #0f2340; }
   .btn.line { background: #ffffff; color: #0f2340; border: 2px solid #0f2340; }
+  a.btn { text-decoration: none; text-align: center; }
   .btn:disabled { opacity: .55; }
   .gps { margin-top: 20px; font-size: 15px; color: #51606e; }
   .gps.ok { color: #1c6b3c; }
@@ -90,12 +91,14 @@
       <div class="hint" id="notes"></div>
       <div class="gps" id="gps"></div>
       <div class="wait" id="waiting" hidden></div>
+      <a class="btn gold" id="team" hidden></a>
       <button type="button" class="link" id="notMe"></button>
     </div>
 
     <div id="doneView" hidden>
       <div id="lines"></div>
       <div class="box warn" id="doneNote" hidden></div>
+      <a class="btn gold" id="team2" hidden></a>
       <button type="button" class="btn line" id="back"></button>
     </div>
 
@@ -181,7 +184,9 @@
       sentNote: "The signal is back. This punch has been sent to the office.",
       back: "Back",
       notMe: "Not {name}? Change PIN",
-      office: "Office: "
+      office: "Office: ",
+      openDay: "Open my day",
+      deskTag: "Desk code: this is office time for the property. Your location is not used."
     },
     es: {
       other: "English",
@@ -257,7 +262,9 @@
       sentNote: "Volvió la señal. Esta marcación ya se envió a la oficina.",
       back: "Volver",
       notMe: "¿No es {name}? Cambiar PIN",
-      office: "Oficina: "
+      office: "Oficina: ",
+      openDay: "Abrir mi día",
+      deskTag: "Código de escritorio: este es tiempo de oficina para la propiedad. No se usa su ubicación."
     }
   };
   var DAYS = { en: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], es: ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"] };
@@ -270,7 +277,7 @@
   var S = {
     lang: "en", code: "", pin: "", tok: "", view: "loading", info: null, done: null,
     msg: null, retry: null, gps: null, gpsAt: 0, gpsState: "wait", busy: "", pending: null, loadedAt: 0,
-    offline: false, queue: [], me: null, local: null, lastTap: 0, sending: false
+    offline: false, queue: [], me: null, local: null, lastTap: 0, sending: false, desk: false
   };
 
   function el(id) { return document.getElementById(id); }
@@ -424,7 +431,8 @@
 
     var g = el("gps");
     g.className = "gps" + (S.gpsState === "ok" ? " ok" : S.gpsState === "off" ? " off" : "");
-    g.textContent = S.gpsState === "ok" ? t("gpsOk") : S.gpsState === "off" ? t("gpsOff") : t("gpsWait");
+    g.textContent = S.gpsState === "desk" ? t("deskTag") : S.gpsState === "ok" ? t("gpsOk") : S.gpsState === "off" ? t("gpsOff") : t("gpsWait");
+    teamLink("team", st.status !== "out" && !st.guess, st.at ? st.at.code : S.code);
 
     el("waiting").textContent = t("waiting", { n: S.queue.length });
     show("waiting", S.queue.length > 0);
@@ -433,6 +441,15 @@
     var since = when(st.since, I.now || phoneWall(nowMs()));
     if (!st.here) { return t("st_other", { p: st.at.name, t: since }); }
     return t("st_" + st.status, { t: since });
+  }
+
+  // The LAS team goes on from the clock to the LAS Team page, at the property they are clocked in to.
+  function teamLink(id, on, code) {
+    var a = el(id), base = String((S.info && S.info.team) || "");
+    if (!on || base.indexOf("https://") !== 0) { a.hidden = true; return; }
+    a.href = base + (base.indexOf("#") === -1 ? "#" : "&") + "p=" + encodeURIComponent(code);
+    a.textContent = t("openDay");
+    a.hidden = false;
   }
 
   function button(action, st, index, type) {
@@ -478,6 +495,7 @@
     el("doneNote").textContent = note;
     el("doneNote").className = "box " + (d.saved && d.sent ? "good" : "warn");
     show("doneNote", !!note);
+    teamLink("team2", !d.saved && (d.action === "in" || d.action === "switch"), S.code);
     el("back").textContent = t("back");
     if (d.saved && !d.sent) { return t("d_saved"); }
     return t("d_" + d.action);
@@ -505,7 +523,7 @@
     // Keep what the answer says about the business, property, worker and status,
     // and save enough of it on the phone to work later with no signal.
     var I = S.info || {};
-    var keys = ["biz", "phone", "pinLen", "lunchPaid", "breakMin", "askNote", "prop", "worker", "state", "now"];
+    var keys = ["biz", "phone", "pinLen", "lunchPaid", "breakMin", "askNote", "prop", "worker", "state", "now", "team"];
     for (var i = 0; i < keys.length; i++) { if (r[keys[i]] !== undefined) { I[keys[i]] = r[keys[i]]; } }
     S.info = I;
     if (r.tok) { S.tok = r.tok; remember("tok", r.tok); }
@@ -577,7 +595,7 @@
     if (S.sending) { return; }
     S.sending = true;
     var batch = mine().slice(0, 50);
-    post({ op: "sync", p: S.code, pin: S.pin, tok: S.tok, sentAt: nowMs(), items: batch }, function (r) {
+    post({ op: "sync", p: S.code, pin: S.pin, tok: S.tok, desk: S.desk, sentAt: nowMs(), items: batch }, function (r) {
       S.sending = false;
       if (!r.ok) {
         if (pinTrouble(r.code)) { keep(r); toPin(r.code); after("pin"); return; }
@@ -601,7 +619,7 @@
     S.busy = fromPinForm ? "pin" : "";
     if (!fromPinForm) { S.view = "loading"; S.retry = null; S.msg = null; }
     render();
-    post({ op: "state", p: S.code, pin: S.pin, tok: S.tok }, function (r) {
+    post({ op: "state", p: S.code, pin: S.pin, tok: S.tok, desk: S.desk }, function (r) {
       S.busy = "";
       keep(r);
       if (r.ok) {
@@ -652,7 +670,7 @@
     if (!S.pending || S.pending.action !== action) { S.pending = { action: action, rid: newId(), t: tapped }; }
     S.busy = action; S.msg = null;
     // A location found more than a minute ago may be from somewhere else, so it is found again.
-    if (S.gpsState !== "wait" && tapped - S.gpsAt > 60000) { locate(); }
+    if (!S.desk && S.gpsState !== "wait" && tapped - S.gpsAt > 60000) { locate(); }
     render();
     (function wait() {
       if (S.gpsState === "wait" && nowMs() - tapped < 10000) { setTimeout(wait, 300); return; }
@@ -665,7 +683,7 @@
 
   function send(action) {
     var st = S.info.state;
-    var body = { op: "punch", p: S.code, pin: S.pin, tok: S.tok, action: action, rid: S.pending.rid };
+    var body = { op: "punch", p: S.code, pin: S.pin, tok: S.tok, action: action, rid: S.pending.rid, desk: S.desk };
     if (S.gps) { body.lat = S.gps.lat; body.lng = S.gps.lng; body.acc = S.gps.acc; }
     if (leaving(action)) { body.note = String(el("note").value || "").trim(); }
     if (st && st.at) { body.at = st.at.code; }
@@ -691,7 +709,7 @@
   }
 
   function saveOnPhone(action, body) {
-    var item = { rid: body.rid, p: S.code, action: action, t: S.pending.t, at: body.at || "", who: S.me ? S.me.name : "" };
+    var item = { rid: body.rid, p: S.code, action: action, t: S.pending.t, at: body.at || "", who: S.me ? S.me.name : "", desk: S.desk };
     if (body.lat !== undefined) { item.lat = body.lat; item.lng = body.lng; item.acc = body.acc; }
     if (body.note) { item.note = body.note; }
     S.queue.push(item); rememberObj("queue", S.queue);
@@ -723,6 +741,7 @@
   }
 
   function locate() {
+    if (S.desk) { S.gps = null; S.gpsState = "desk"; S.gpsAt = nowMs(); return; }
     if (!navigator.geolocation) { S.gpsState = "off"; return; }
     S.gpsState = "wait"; S.gps = null;
     navigator.geolocation.getCurrentPosition(function (p) {
@@ -773,6 +792,8 @@
     setInterval(trySend, 20000);
 
     var q = String(window.location.search || "");
+    // A desk code carries d=1: office time for the property, scanned at a workstation by the LAS team.
+    S.desk = /[?&]d=1(&|$)/.test(q);
     var m = /[?&]p=([^&#]*)/.exec(q);
     S.code = m ? decodeURIComponent(m[1]).toUpperCase().replace(/[^A-Z0-9]/g, "") : "";
     if (!S.code) { S.view = "stop"; S.msg = { key: "noCode", kind: "warn" }; render(); return; }

@@ -1,5 +1,5 @@
-// LAS Time Clock 1.1: lets the clock page open when the phone has no signal.
-var CACHE = "las-clock-1.1";
+// LAS Time Clock 1.2: lets the clock page open when the phone has no signal.
+var CACHE = "las-clock-1.2";
 
 self.addEventListener("install", function (e) {
   self.skipWaiting();

@@ -63,6 +63,7 @@
   .shots { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
   .shot { position: relative; width: 92px; height: 92px; border-radius: 8px; overflow: hidden; background: #eef1f5; }
   .shot img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .shot .pdf { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 700; color: #0f2340; }
   .shot button { position: absolute; top: 4px; right: 4px; width: 34px; height: 34px; border: 0; border-radius: 17px; font: inherit; font-size: 15px; font-weight: 700; color: #ffffff; background: #7a1d00; }
   .shot span { position: absolute; left: 4px; bottom: 4px; padding: 1px 7px; border-radius: 10px; font-size: 13px; font-weight: 700; color: #ffffff; background: #0f2340; }
   .progress { margin-top: 14px; font-size: 16px; font-weight: 600; color: #6b4e00; }
@@ -80,14 +81,14 @@
   </div>
   <main>
     <div class="box" id="msg" hidden></div>
- 
+
     <div id="pinView" hidden>
       <label for="pin" id="pinLabel"></label>
       <input id="pin" type="password" inputmode="numeric" autocomplete="off">
       <div class="hint" id="pinHint"></div>
       <button type="button" class="btn" id="pinGo"></button>
     </div>
- 
+
     <div id="mainView" hidden>
       <h1 id="hello"></h1>
       <div id="buttons"></div>
@@ -102,7 +103,7 @@
       <a class="btn gold" id="team" hidden></a>
       <button type="button" class="link" id="notMe"></button>
     </div>
- 
+
     <div id="mailView" hidden>
       <h1 id="m_title"></h1>
       <div class="hint" id="m_intro"></div>
@@ -111,29 +112,31 @@
       <label id="m_photosLabel"></label>
       <div class="hint" id="m_photosHint"></div>
       <div class="shots" id="m_shots"></div>
-      <button type="button" class="btn gold" id="m_add"></button>
-      <input id="m_file" type="file" accept="image/*" hidden>
+      <button type="button" class="btn gold" id="m_cam"></button>
+      <button type="button" class="btn line" id="m_add"></button>
+      <input id="m_camFile" type="file" accept="image/*" capture="environment" hidden>
+      <input id="m_file" type="file" accept="image/*,application/pdf" multiple hidden>
       <label for="m_note" id="m_noteLabel"></label>
       <textarea id="m_note" maxlength="300"></textarea>
       <div class="progress" id="m_progress" hidden></div>
       <button type="button" class="btn green" id="m_send"></button>
       <button type="button" class="link" id="m_cancel"></button>
     </div>
- 
+
     <div id="doneView" hidden>
       <div id="lines"></div>
       <div class="box warn" id="doneNote" hidden></div>
       <a class="btn gold" id="team2" hidden></a>
       <button type="button" class="btn line" id="back"></button>
     </div>
- 
+
     <button type="button" class="btn line" id="retry" hidden></button>
     <div class="office" id="office" hidden></div>
   </main>
- 
+
 <script>
   var API = "https://script.google.com/macros/s/AKfycbyQL1tzZ-yeqMYvZF_8q-Tvoj-tPNBem2CCUv-zYMgF9wdajZzBaQbVwbEJf1ywUIkDsA/exec";
- 
+
   var T = {
     en: {
       other: "Español",
@@ -218,8 +221,10 @@
       m_pieces: "How many pieces of mail?",
       m_photos: "Photos",
       m_photosHint: "{n} photo(s). One photo per piece. A pile of advertising can be one photo.",
-      m_add: "Take or add a photo",
-      m_addMore: "Add another photo",
+      m_cam: "Take a photo with the camera",
+      m_camMore: "Take another photo",
+      m_add: "Choose photos, files or a Drive scan",
+      m_pdfHint: "A scan made with the Scan button in the Google Drive app also works: choose it with the second button.",
       m_note: "Note (optional). Like: a package, or a letter was wet.",
       m_send: "Send to LAS",
       m_cancel: "Cancel",
@@ -325,8 +330,10 @@
       m_pieces: "¿Cuántas piezas de correo?",
       m_photos: "Fotos",
       m_photosHint: "{n} foto(s). Una foto por pieza. Un montón de publicidad puede ser una sola foto.",
-      m_add: "Tomar o agregar una foto",
-      m_addMore: "Agregar otra foto",
+      m_cam: "Tomar una foto con la cámara",
+      m_camMore: "Tomar otra foto",
+      m_add: "Elegir fotos, archivos o un escaneo de Drive",
+      m_pdfHint: "Un escaneo hecho con el botón Escanear de la aplicación Google Drive también sirve: elíjalo con el segundo botón.",
       m_note: "Nota (opcional). Por ejemplo: un paquete, o una carta llegó mojada.",
       m_send: "Enviar a LAS",
       m_cancel: "Cancelar",
@@ -355,7 +362,7 @@
     en: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
     es: ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"]
   };
- 
+
   // Everything the page knows right now. render() draws the screen from this.
   var S = {
     lang: "en", code: "", pin: "", tok: "", view: "loading", info: null, done: null,
@@ -363,7 +370,7 @@
     offline: false, queue: [], me: null, local: null, lastTap: 0, sending: false, desk: false,
     mail: null
   };
- 
+
   function el(id) { return document.getElementById(id); }
   function show(id, on) { el(id).hidden = !on; }
   function recall(k) { try { return window.localStorage.getItem("lasclock." + k) || ""; } catch (e) { return ""; } }
@@ -372,13 +379,13 @@
   function recallObj(k, fallback) { try { var v = JSON.parse(recall(k)); return v === null || v === undefined ? fallback : v; } catch (e) { return fallback; } }
   function rememberObj(k, v) { remember(k, JSON.stringify(v)); }
   function nowMs() { return new Date().getTime(); }
- 
+
   function t(key, vars) {
     var s = (T[S.lang] && T[S.lang][key]) || T.en[key] || key;
     if (vars) { for (var k in vars) { s = s.split("{" + k + "}").join(String(vars[k])); } }
     return s;
   }
- 
+
   function two(n) { return (n < 10 ? "0" : "") + n; }
   function parts(w) {
     return { y: +w.substr(0, 4), mo: +w.substr(5, 2), d: +w.substr(8, 2), h: +w.substr(11, 2), mi: +w.substr(14, 2) };
@@ -407,9 +414,9 @@
   }
   function firstName(n) { return String(n || "").split(" ")[0]; }
   function digits(v) { return String(v || "").replace(/[^0-9]/g, ""); }
- 
+
   /* ---------- the same button rules the Sheet uses, for when there is no signal ---------- */
- 
+
   function actionsFor(local, type, code) {
     if (!local || local.status === "out" || !local.at) { return ["in"]; }
     if (local.at.code !== code) { return ["switch", "out_other"]; }
@@ -434,9 +441,9 @@
       actions: actionsFor(L, S.me ? S.me.type : "Staff", S.code), nextBreakPaid: true, paidUntil: "", stale: false, guess: true
     };
   }
- 
+
   /* ---------- drawing ---------- */
- 
+
   function render() {
     var I = S.info || {};
     document.documentElement.lang = S.lang;
@@ -445,7 +452,7 @@
     el("biz").textContent = I.biz || "";
     el("prop").textContent = I.prop ? I.prop.name : "";
     document.title = (I.prop ? I.prop.name + " - " : "") + (I.biz || "Time Clock");
- 
+
     var m = S.msg;
     if (!m && S.offline && S.view === "main") { m = { key: "OFFLINE", kind: "warn" }; }
     if (m) {
@@ -455,12 +462,12 @@
     show("msg", !!m);
     show("retry", !!S.retry);
     el("retry").textContent = t("retry");
- 
+
     show("pinView", S.view === "pin");
     show("mainView", S.view === "main");
     show("doneView", S.view === "done");
     show("mailView", S.view === "mail");
- 
+
     var status = "";
     if (S.view === "loading") { status = t("loading"); }
     if (S.view === "pin") { drawPin(I); }
@@ -468,7 +475,7 @@
     if (S.view === "done") { status = drawDone(I); }
     if (S.view === "mail") { status = drawMail(); }
     el("status").textContent = status;
- 
+
     show("office", !!I.phone && S.view !== "loading");
     if (I.phone) {
       var o = el("office");
@@ -479,7 +486,7 @@
       o.appendChild(a);
     }
   }
- 
+
   function drawPin(I) {
     var n = I.pinLen || 4;
     el("pinLabel").textContent = t("pinLabel", { n: n });
@@ -488,20 +495,20 @@
     el("pinGo").textContent = S.busy ? t("loading") : t("pinGo");
     el("pinGo").disabled = !!S.busy;
   }
- 
+
   function drawMain(I) {
     var st = I.state, name = firstName(I.worker.name);
     el("hello").textContent = t("hello", { name: name });
     el("notMe").textContent = t("notMe", { name: name });
- 
+
     var host = el("buttons");
     host.innerHTML = "";
     for (var i = 0; i < st.actions.length; i++) { host.appendChild(button(st.actions[i], st, i, I.worker.type)); }
- 
+
     var leaving = st.actions.indexOf("out") !== -1 || st.actions.indexOf("out_other") !== -1 || st.actions.indexOf("switch") !== -1;
     show("noteWrap", leaving && I.askNote !== false);
     el("noteLabel").textContent = t("noteLabel");
- 
+
     var notes = [];
     if (!st.guess) {
       if (st.actions.indexOf("lunch_start") !== -1 && !I.lunchPaid) { notes.push(t("n_lunch")); }
@@ -514,24 +521,24 @@
     }
     el("notes").textContent = notes.join(" ");
     show("notes", notes.length > 0);
- 
+
     var g = el("gps");
     g.className = "gps" + (S.gpsState === "ok" ? " ok" : S.gpsState === "off" ? " off" : "");
     g.textContent = S.gpsState === "desk" ? t("deskTag") : S.gpsState === "ok" ? t("gpsOk") : S.gpsState === "off" ? t("gpsOff") : t("gpsWait");
     teamLink("team", st.status !== "out" && !st.guess, st.at ? st.at.code : S.code);
- 
+
     el("waiting").textContent = t("waiting", { n: S.queue.length });
     show("waiting", S.queue.length > 0);
     el("mailBtn").textContent = t("b_mail");
     el("mailBtn").disabled = !!S.busy;
     show("mailBtn", !!I.mail && !S.offline && !st.guess);
- 
+
     if (st.status === "out") { return st.stale ? t("stale") : t("st_out"); }
     var since = when(st.since, I.now || phoneWall(nowMs()));
     if (!st.here) { return t("st_other", { p: st.at.name, t: since }); }
     return t("st_" + st.status, { t: since });
   }
- 
+
   // The LAS team goes on from the clock to the LAS Team page, at the property they are clocked in to.
   function teamLink(id, on, code) {
     var a = el(id), base = String((S.info && S.info.team) || "");
@@ -540,7 +547,7 @@
     a.textContent = t("openDay");
     a.hidden = false;
   }
- 
+
   function button(action, st, index, type) {
     var b = document.createElement("button");
     b.type = "button";
@@ -557,7 +564,7 @@
     b.onclick = function () { act(action); };
     return b;
   }
- 
+
   function drawDone(I) {
     var d = S.done, host = el("lines");
     host.innerHTML = "";
@@ -590,9 +597,9 @@
     if (d.saved && !d.sent) { return t("d_saved"); }
     return t("d_" + d.action);
   }
- 
+
   /* ---------- talking to the Sheet ---------- */
- 
+
   function post(body, onAnswer, onFail, limitMs) {
     var ctrl = (typeof AbortController !== "undefined") ? new AbortController() : null;
     var timer = setTimeout(function () { if (ctrl) { ctrl.abort(); } }, limitMs || 30000);
@@ -608,7 +615,7 @@
       })
       .then(null, function () { clearTimeout(timer); onFail(); });
   }
- 
+
   function keep(r) {
     // Keep what the answer says about the business, property, worker and status,
     // and save enough of it on the phone to work later with no signal.
@@ -625,15 +632,15 @@
       rememberObj("local", S.local);
     }
   }
- 
+
   function pinTrouble(code) { return code === "BAD_PIN" || code === "INACTIVE" || code === "PIN_SETUP" || code === "LOCKED"; }
- 
+
   function toPin(code) {
     if (code !== "LOCKED") { forget("pin"); forget("tok"); S.pin = ""; S.tok = ""; }
     el("pin").value = "";
     S.view = "pin"; S.msg = { key: code, kind: "bad" }; S.retry = null; S.offline = false; render();
   }
- 
+
   function boot() {
     S.view = "loading"; S.msg = null; S.retry = null; render();
     post({ op: "boot", p: S.code }, function (r) {
@@ -646,7 +653,7 @@
       S.view = "stop"; S.msg = { key: "OFF_NEW", kind: "bad" }; S.retry = boot; render();
     });
   }
- 
+
   // What this phone remembers from earlier visits, for when the Sheet cannot be reached.
   function useSaved() {
     var cfg = recallObj("cfg", {}), names = recallObj("props", {});
@@ -655,14 +662,14 @@
       prop: { code: S.code, name: names[S.code] || S.code }, worker: S.me, now: ""
     };
   }
- 
+
   function goOffline() {
     useSaved();
     S.info.state = localState();
     S.offline = true; S.busy = ""; S.view = "main"; S.msg = null; S.retry = null;
     render();
   }
- 
+
   // Send anything saved on the phone, then ask the Sheet for the current status.
   function refresh(fromPinForm) {
     if (!mine().length) { getState(fromPinForm); return; }
@@ -673,14 +680,14 @@
       getState(fromPinForm);
     });
   }
- 
+
   // The saved punches that belong to the person signed in on this phone right now.
   function mine() {
     var out = [], who = S.me ? S.me.name : "";
     for (var i = 0; i < S.queue.length; i++) { if (!S.queue[i].who || S.queue[i].who === who) { out.push(S.queue[i]); } }
     return out;
   }
- 
+
   function sendQueue(after) {
     if (S.sending) { return; }
     S.sending = true;
@@ -704,7 +711,7 @@
       after("ok", n);
     }, function () { S.sending = false; after("net"); }, 20000);
   }
- 
+
   function getState(fromPinForm) {
     S.busy = fromPinForm ? "pin" : "";
     if (!fromPinForm) { S.view = "loading"; S.retry = null; S.msg = null; }
@@ -729,7 +736,7 @@
       S.view = "stop"; S.msg = { key: "OFF_NEW", kind: "bad" }; S.retry = function () { refresh(false); }; render();
     });
   }
- 
+
   function submitPin() {
     if (S.busy) { return; }
     var n = (S.info && S.info.pinLen) || 4;
@@ -742,13 +749,13 @@
     S.pin = v; S.msg = null;
     getState(true);
   }
- 
+
   function newId() {
     var s = "", abc = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
     for (var i = 0; i < 20; i++) { s += abc.charAt(Math.floor(Math.random() * abc.length)); }
     return s;
   }
- 
+
   function act(action) {
     if (S.busy) { return; }
     var tapped = nowMs();
@@ -768,9 +775,9 @@
       send(action);
     })();
   }
- 
+
   function leaving(action) { return action === "out" || action === "out_other" || action === "switch"; }
- 
+
   function send(action) {
     var st = S.info.state;
     var body = { op: "punch", p: S.code, pin: S.pin, tok: S.tok, action: action, rid: S.pending.rid, desk: S.desk };
@@ -797,7 +804,7 @@
       saveOnPhone(action, body);
     }, 15000);
   }
- 
+
   function saveOnPhone(action, body) {
     var item = { rid: body.rid, p: S.code, action: action, t: S.pending.t, at: body.at || "", who: S.me ? S.me.name : "", desk: S.desk };
     if (body.lat !== undefined) { item.lat = body.lat; item.lng = body.lng; item.acc = body.acc; }
@@ -812,7 +819,7 @@
     S.view = "done"; S.msg = null; render();
     window.scrollTo(0, 0);
   }
- 
+
   // Runs every 20 seconds and when the phone says the signal is back.
   function trySend() {
     if (!mine().length || S.busy || S.sending || !S.pin || !S.me) { return; }
@@ -829,9 +836,9 @@
       if (S.view === "main") { S.msg = n ? { key: "SENT", vars: { n: n }, kind: "good" } : null; S.info.state = S.info.state || localState(); render(); }
     });
   }
- 
+
   /* ---------- Mail collected ---------- */
- 
+
   function line2(host, label, value) {
     var line = document.createElement("div");
     line.className = "line2";
@@ -841,7 +848,7 @@
     line.appendChild(document.createTextNode(value));
     host.appendChild(line);
   }
- 
+
   function drawMailDone(I, d, host) {
     line2(host, t("l_send"), d.sendId);
     line2(host, t("l_pieces"), String(d.pieces));
@@ -856,7 +863,7 @@
     el("back").textContent = t("back");
     return t("d_mail");
   }
- 
+
   function openMail() {
     if (S.busy) { return; }
     if (S.offline) { S.msg = { key: "m_offline", kind: "warn" }; render(); return; }
@@ -864,20 +871,22 @@
     S.view = "mail"; S.msg = null; S.retry = null; render();
     window.scrollTo(0, 0);
   }
- 
+
   function drawMail() {
     var M = S.mail;
     el("m_title").textContent = t("m_title");
     el("m_intro").textContent = t("m_intro");
     el("m_piecesLabel").textContent = t("m_pieces");
     el("m_photosLabel").textContent = t("m_photos");
-    el("m_photosHint").textContent = t("m_photosHint", { n: M.photos.length });
-    el("m_add").textContent = M.photos.length ? t("m_addMore") : t("m_add");
+    el("m_photosHint").textContent = t("m_photosHint", { n: M.photos.length }) + " " + t("m_pdfHint");
+    el("m_cam").textContent = M.photos.length ? t("m_camMore") : t("m_cam");
+    el("m_add").textContent = t("m_add");
     el("m_noteLabel").textContent = t("m_note");
     el("m_send").textContent = t("m_send");
     el("m_cancel").textContent = t("m_cancel");
     var busy = !!M.busy;
     el("m_add").disabled = busy || M.photos.length >= 30;
+    el("m_cam").disabled = busy || M.photos.length >= 30;
     el("m_send").disabled = busy;
     el("m_cancel").disabled = busy;
     el("m_pieces").disabled = busy;
@@ -888,14 +897,22 @@
     for (var i = 0; i < M.photos.length; i++) { host.appendChild(shot(i, busy)); }
     return t("m_title");
   }
- 
+
   function shot(i, busy) {
     var box = document.createElement("div");
     box.className = "shot";
-    var img = document.createElement("img");
-    img.src = "data:image/jpeg;base64," + S.mail.photos[i];
-    img.alt = "";
-    box.appendChild(img);
+    var ph = S.mail.photos[i];
+    if (ph.kind === "pdf") {
+      var pd = document.createElement("div");
+      pd.className = "pdf";
+      pd.textContent = "PDF";
+      box.appendChild(pd);
+    } else {
+      var img = document.createElement("img");
+      img.src = "data:image/jpeg;base64," + ph.data;
+      img.alt = "";
+      box.appendChild(img);
+    }
     var n = document.createElement("span");
     n.textContent = String(i + 1);
     box.appendChild(n);
@@ -909,19 +926,52 @@
     }
     return box;
   }
- 
+
   // Changing the photos after a try makes it a new send, so nothing is mixed with photos already sent.
   function freshSend() { S.mail.send = ""; S.mail.sentUpTo = 0; }
- 
+
   function dropPhoto(i) {
     S.mail.photos.splice(i, 1);
     freshSend();
     render();
   }
- 
+
   // Photos from a phone camera are large. Each is made smaller here (at most 1600 pixels on its long side)
   // so it can be sent over a weak signal and still be read clearly.
-  function addPhoto(file) {
+  function addFiles(list) {
+    var all = [];
+    for (var i = 0; list && i < list.length; i++) { all.push(list[i]); }
+    var next = function () {
+      if (!all.length || !S.mail) { return; }
+      if (S.mail.photos.length >= 30) { S.msg = { key: "TOO_MANY", kind: "bad" }; render(); return; }
+      var f = all.shift();
+      var name = String(f.name || "").toLowerCase();
+      if (f.type === "application/pdf" || name.slice(-4) === ".pdf") { addPdf(f, next); } else { addPhoto(f, next); }
+    };
+    next();
+  }
+
+  // A scan from the Google Drive app arrives as a PDF. It is sent as it is, up to 6 MB.
+  function addPdf(file, next) {
+    var M = S.mail;
+    if (file.size > 6 * 1024 * 1024) { S.msg = { key: "TOO_BIG", kind: "bad" }; render(); return; }
+    M.busy = "shrink"; M.progress = t("m_shrinking"); render();
+    var rd = new FileReader();
+    rd.onload = function () {
+      M.busy = ""; M.progress = "";
+      var data = String(rd.result || ""), at = data.indexOf(",");
+      var b64 = at < 0 ? "" : data.slice(at + 1);
+      if (b64.indexOf("JVBERi") !== 0) { S.msg = { key: "BAD_PHOTO", kind: "bad" }; render(); return; }
+      M.photos.push({ kind: "pdf", data: b64 });
+      freshSend();
+      S.msg = null; render();
+      if (next) { next(); }
+    };
+    rd.onerror = function () { M.busy = ""; M.progress = ""; S.msg = { key: "BAD_PHOTO", kind: "bad" }; render(); };
+    rd.readAsDataURL(file);
+  }
+
+  function addPhoto(file, next) {
     if (!file) { return; }
     var M = S.mail;
     M.busy = "shrink"; M.progress = t("m_shrinking"); render();
@@ -941,9 +991,10 @@
       M.busy = ""; M.progress = "";
       var at = data.indexOf(",");
       if (data.indexOf("data:image/jpeg") !== 0 || at < 0) { S.msg = { key: "BAD_PHOTO", kind: "bad" }; render(); return; }
-      M.photos.push(data.slice(at + 1));
+      M.photos.push({ kind: "jpg", data: data.slice(at + 1) });
       freshSend();
       S.msg = null; render();
+      if (next) { next(); }
     };
     img.onerror = function () {
       try { URL.revokeObjectURL(url); } catch (e) {}
@@ -952,7 +1003,7 @@
     };
     img.src = url;
   }
- 
+
   function mailCheck() {
     var raw = String(el("m_pieces").value || "").trim();
     if (!/^[0-9]{1,2}$/.test(raw) || +raw < 1 || +raw > 60) { return "BAD_PIECES"; }
@@ -960,14 +1011,14 @@
     if (S.mail.photos.length > 30) { return "TOO_MANY"; }
     return "";
   }
- 
+
   function mailStop(code) {
     S.mail.busy = ""; S.mail.progress = "";
     S.msg = { key: T.en[code] ? code : "SERVER", kind: "bad" };
     render();
     window.scrollTo(0, 0);
   }
- 
+
   function sendMail() {
     var M = S.mail;
     if (M.busy) { return; }
@@ -977,13 +1028,13 @@
     M.busy = "send"; S.msg = null;
     nextPhoto();
   }
- 
+
   function nextPhoto() {
     var M = S.mail, n = M.photos.length;
     if (M.sentUpTo >= n) { finishMail(); return; }
     var i = M.sentUpTo + 1;
     M.progress = t("m_sending", { i: i, n: n }); render();
-    post({ op: "mailphoto", p: S.code, pin: S.pin, tok: S.tok, send: M.send, n: i, data: M.photos[i - 1] }, function (r) {
+    post({ op: "mailphoto", p: S.code, pin: S.pin, tok: S.tok, send: M.send, n: i, data: M.photos[i - 1].data, kind: M.photos[i - 1].kind }, function (r) {
       keep(r);
       if (!r.ok) {
         if (pinTrouble(r.code)) { S.mail.busy = ""; toPin(r.code); return; }
@@ -993,7 +1044,7 @@
       nextPhoto();
     }, function () { mailStop("MAIL_NET"); }, 90000);
   }
- 
+
   function finishMail() {
     var M = S.mail;
     M.progress = t("m_finishing"); render();
@@ -1018,7 +1069,7 @@
       mailStop(r.code || "SERVER");
     }, function () { mailStop("MAIL_NET"); }, 60000);
   }
- 
+
   function locate() {
     if (S.desk) { S.gps = null; S.gpsState = "desk"; S.gpsAt = nowMs(); return; }
     if (!navigator.geolocation) { S.gpsState = "off"; return; }
@@ -1032,12 +1083,12 @@
       if (S.view === "main" && !S.busy) { render(); }
     }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
   }
- 
+
   function start() {
     var saved = recall("lang");
     var nav = String(navigator.language || "").toLowerCase();
     S.lang = saved === "es" || saved === "en" ? saved : (nav.indexOf("es") === 0 ? "es" : "en");
- 
+
     el("lang").onclick = function () { S.lang = S.lang === "es" ? "en" : "es"; remember("lang", S.lang); render(); };
     el("pinGo").onclick = submitPin;
     el("pin").oninput = function () {
@@ -1051,8 +1102,10 @@
     el("retry").onclick = function () { if (S.retry) { S.retry(); } };
     el("back").onclick = function () { locate(); refresh(false); };
     el("mailBtn").onclick = openMail;
+    el("m_cam").onclick = function () { el("m_camFile").value = ""; el("m_camFile").click(); };
+    el("m_camFile").onchange = function () { addFiles(el("m_camFile").files); };
     el("m_add").onclick = function () { el("m_file").value = ""; el("m_file").click(); };
-    el("m_file").onchange = function () { var f = el("m_file").files; addPhoto(f && f.length ? f[0] : null); };
+    el("m_file").onchange = function () { addFiles(el("m_file").files); };
     el("m_send").onclick = sendMail;
     el("m_cancel").onclick = function () { S.mail = null; S.view = "main"; S.msg = null; render(); };
     el("m_pieces").oninput = function () {
@@ -1065,12 +1118,12 @@
       S.pin = ""; S.tok = ""; S.me = null; S.local = null; S.offline = false;
       el("pin").value = ""; S.view = "pin"; S.msg = null; render(); el("pin").focus();
     };
- 
+
     // The saved copy of this page is what opens when there is no signal.
     if ("serviceWorker" in navigator) {
       try { navigator.serviceWorker.register("sw.js").then(null, function () {}); } catch (e) {}
     }
- 
+
     // Coming back to a page that was left open: show the current status, not the old one.
     document.addEventListener("visibilitychange", function () {
       if (document.visibilityState !== "visible" || S.busy || !S.pin) { return; }
@@ -1078,14 +1131,14 @@
     });
     window.addEventListener("online", trySend);
     setInterval(trySend, 20000);
- 
+
     var q = String(window.location.search || "");
     // A desk code carries d=1: office time for the property, scanned at a workstation by the LAS team.
     S.desk = /[?&]d=1(&|$)/.test(q);
     var m = /[?&]p=([^&#]*)/.exec(q);
     S.code = m ? decodeURIComponent(m[1]).toUpperCase().replace(/[^A-Z0-9]/g, "") : "";
     if (!S.code) { S.view = "stop"; S.msg = { key: "noCode", kind: "warn" }; render(); return; }
- 
+
     locate();
     S.pin = recall("pin");
     S.tok = recall("tok");
@@ -1094,7 +1147,7 @@
     S.queue = recallObj("queue", []);
     if (S.pin) { refresh(false); } else { boot(); }
   }
- 
+
   start();
 </script>
 </body>

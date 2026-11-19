@@ -1,17 +1,17 @@
 // LAS Time Clock 1.3: lets the clock page open when the phone has no signal.
 var CACHE = "las-clock-1.3";
- 
+
 self.addEventListener("install", function (e) {
   self.skipWaiting();
   e.waitUntil(caches.open(CACHE).then(function (c) { return c.add(new Request("./", { cache: "reload" })); }));
 });
- 
+
 self.addEventListener("activate", function (e) {
   e.waitUntil(caches.keys().then(function (keys) {
     return Promise.all(keys.map(function (k) { return k === CACHE ? null : caches.delete(k); }));
   }).then(function () { return self.clients.claim(); }));
 });
- 
+
 // The page itself: try the network first so updates arrive, and fall back to the saved copy
 // when there is no signal or the signal is too weak to answer within four seconds.
 self.addEventListener("fetch", function (e) {

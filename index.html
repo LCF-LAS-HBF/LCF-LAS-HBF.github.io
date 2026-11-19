@@ -59,6 +59,13 @@
   .line2 b { display: block; font-size: 14px; font-weight: 600; color: #51606e; }
   .office { margin-top: 26px; font-size: 15px; color: #51606e; }
   .office a { color: #0f2340; font-weight: 600; }
+  input.count { font-size: 34px; letter-spacing: 2px; }
+  .shots { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+  .shot { position: relative; width: 92px; height: 92px; border-radius: 8px; overflow: hidden; background: #eef1f5; }
+  .shot img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .shot button { position: absolute; top: 4px; right: 4px; width: 34px; height: 34px; border: 0; border-radius: 17px; font: inherit; font-size: 15px; font-weight: 700; color: #ffffff; background: #7a1d00; }
+  .shot span { position: absolute; left: 4px; bottom: 4px; padding: 1px 7px; border-radius: 10px; font-size: 13px; font-weight: 700; color: #ffffff; background: #0f2340; }
+  .progress { margin-top: 14px; font-size: 16px; font-weight: 600; color: #6b4e00; }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -73,14 +80,14 @@
   </div>
   <main>
     <div class="box" id="msg" hidden></div>
-
+ 
     <div id="pinView" hidden>
       <label for="pin" id="pinLabel"></label>
       <input id="pin" type="password" inputmode="numeric" autocomplete="off">
       <div class="hint" id="pinHint"></div>
       <button type="button" class="btn" id="pinGo"></button>
     </div>
-
+ 
     <div id="mainView" hidden>
       <h1 id="hello"></h1>
       <div id="buttons"></div>
@@ -91,24 +98,42 @@
       <div class="hint" id="notes"></div>
       <div class="gps" id="gps"></div>
       <div class="wait" id="waiting" hidden></div>
+      <button type="button" class="btn line" id="mailBtn" hidden></button>
       <a class="btn gold" id="team" hidden></a>
       <button type="button" class="link" id="notMe"></button>
     </div>
-
+ 
+    <div id="mailView" hidden>
+      <h1 id="m_title"></h1>
+      <div class="hint" id="m_intro"></div>
+      <label for="m_pieces" id="m_piecesLabel"></label>
+      <input id="m_pieces" class="count" type="text" inputmode="numeric" maxlength="2" autocomplete="off">
+      <label id="m_photosLabel"></label>
+      <div class="hint" id="m_photosHint"></div>
+      <div class="shots" id="m_shots"></div>
+      <button type="button" class="btn gold" id="m_add"></button>
+      <input id="m_file" type="file" accept="image/*" hidden>
+      <label for="m_note" id="m_noteLabel"></label>
+      <textarea id="m_note" maxlength="300"></textarea>
+      <div class="progress" id="m_progress" hidden></div>
+      <button type="button" class="btn green" id="m_send"></button>
+      <button type="button" class="link" id="m_cancel"></button>
+    </div>
+ 
     <div id="doneView" hidden>
       <div id="lines"></div>
       <div class="box warn" id="doneNote" hidden></div>
       <a class="btn gold" id="team2" hidden></a>
       <button type="button" class="btn line" id="back"></button>
     </div>
-
+ 
     <button type="button" class="btn line" id="retry" hidden></button>
     <div class="office" id="office" hidden></div>
   </main>
-
+ 
 <script>
   var API = "https://script.google.com/macros/s/AKfycbyQL1tzZ-yeqMYvZF_8q-Tvoj-tPNBem2CCUv-zYMgF9wdajZzBaQbVwbEJf1ywUIkDsA/exec";
-
+ 
   var T = {
     en: {
       other: "Español",
@@ -186,7 +211,36 @@
       notMe: "Not {name}? Change PIN",
       office: "Office: ",
       openDay: "Open my day",
-      deskTag: "Desk code: this is office time for the property. Your location is not used."
+      deskTag: "Desk code: this is office time for the property. Your location is not used.",
+      b_mail: "Mail collected",
+      m_title: "Mail collected",
+      m_intro: "Count the mail you picked up and take a photo of the front of each piece. Do not open anything unless LAS asked you to. Keep the mail in the place LAS showed you.",
+      m_pieces: "How many pieces of mail?",
+      m_photos: "Photos",
+      m_photosHint: "{n} photo(s). One photo per piece. A pile of advertising can be one photo.",
+      m_add: "Take or add a photo",
+      m_addMore: "Add another photo",
+      m_note: "Note (optional). Like: a package, or a letter was wet.",
+      m_send: "Send to LAS",
+      m_cancel: "Cancel",
+      m_shrinking: "Getting the photo ready...",
+      m_sending: "Sending photo {i} of {n}...",
+      m_finishing: "Saving...",
+      m_offline: "Mail needs a signal to send the photos. Open this page again where there is a signal.",
+      BAD_PIECES: "Type how many pieces of mail, a number from 1 to 60.",
+      NO_PHOTOS: "Add at least one photo of the mail.",
+      TOO_MANY: "That is too many photos. Send up to 30 at a time.",
+      TOO_BIG: "One photo is too large. Remove it and take it again.",
+      BAD_PHOTO: "One photo could not be read. Remove it and take it again.",
+      NO_MAIL: "Mail is not set up for you at this property. Call the office.",
+      NO_FOLDER: "The mail folder for this property is not ready. Call the office.",
+      MISSING_PHOTO: "A photo did not arrive. Tap Send to LAS again.",
+      MAIL_NET: "The signal is too weak to send the photos. Nothing is lost. Tap Send to LAS again where the signal is better.",
+      d_mail: "Mail sent to LAS",
+      l_send: "Send number",
+      l_pieces: "Pieces of mail",
+      l_photos: "Photos",
+      mailNote: "LAS will check this against the photos. Keep the mail where LAS showed you."
     },
     es: {
       other: "English",
@@ -264,7 +318,36 @@
       notMe: "¿No es {name}? Cambiar PIN",
       office: "Oficina: ",
       openDay: "Abrir mi día",
-      deskTag: "Código de escritorio: este es tiempo de oficina para la propiedad. No se usa su ubicación."
+      deskTag: "Código de escritorio: este es tiempo de oficina para la propiedad. No se usa su ubicación.",
+      b_mail: "Correo recogido",
+      m_title: "Correo recogido",
+      m_intro: "Cuente el correo que recogió y tome una foto del frente de cada pieza. No abra nada a menos que LAS se lo haya pedido. Guarde el correo en el lugar que LAS le indicó.",
+      m_pieces: "¿Cuántas piezas de correo?",
+      m_photos: "Fotos",
+      m_photosHint: "{n} foto(s). Una foto por pieza. Un montón de publicidad puede ser una sola foto.",
+      m_add: "Tomar o agregar una foto",
+      m_addMore: "Agregar otra foto",
+      m_note: "Nota (opcional). Por ejemplo: un paquete, o una carta llegó mojada.",
+      m_send: "Enviar a LAS",
+      m_cancel: "Cancelar",
+      m_shrinking: "Preparando la foto...",
+      m_sending: "Enviando foto {i} de {n}...",
+      m_finishing: "Guardando...",
+      m_offline: "El correo necesita señal para enviar las fotos. Abra esta página otra vez donde haya señal.",
+      BAD_PIECES: "Escriba cuántas piezas de correo, un número del 1 al 60.",
+      NO_PHOTOS: "Agregue al menos una foto del correo.",
+      TOO_MANY: "Son demasiadas fotos. Envíe hasta 30 a la vez.",
+      TOO_BIG: "Una foto es demasiado grande. Quítela y tómela otra vez.",
+      BAD_PHOTO: "Una foto no se pudo leer. Quítela y tómela otra vez.",
+      NO_MAIL: "El correo no está activado para usted en esta propiedad. Llame a la oficina.",
+      NO_FOLDER: "La carpeta de correo de esta propiedad no está lista. Llame a la oficina.",
+      MISSING_PHOTO: "Una foto no llegó. Toque Enviar a LAS otra vez.",
+      MAIL_NET: "La señal es muy débil para enviar las fotos. No se perdió nada. Toque Enviar a LAS otra vez donde haya mejor señal.",
+      d_mail: "Correo enviado a LAS",
+      l_send: "Número de envío",
+      l_pieces: "Piezas de correo",
+      l_photos: "Fotos",
+      mailNote: "LAS lo revisará con las fotos. Guarde el correo donde LAS le indicó."
     }
   };
   var DAYS = { en: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], es: ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"] };
@@ -272,14 +355,15 @@
     en: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
     es: ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"]
   };
-
+ 
   // Everything the page knows right now. render() draws the screen from this.
   var S = {
     lang: "en", code: "", pin: "", tok: "", view: "loading", info: null, done: null,
     msg: null, retry: null, gps: null, gpsAt: 0, gpsState: "wait", busy: "", pending: null, loadedAt: 0,
-    offline: false, queue: [], me: null, local: null, lastTap: 0, sending: false, desk: false
+    offline: false, queue: [], me: null, local: null, lastTap: 0, sending: false, desk: false,
+    mail: null
   };
-
+ 
   function el(id) { return document.getElementById(id); }
   function show(id, on) { el(id).hidden = !on; }
   function recall(k) { try { return window.localStorage.getItem("lasclock." + k) || ""; } catch (e) { return ""; } }
@@ -288,13 +372,13 @@
   function recallObj(k, fallback) { try { var v = JSON.parse(recall(k)); return v === null || v === undefined ? fallback : v; } catch (e) { return fallback; } }
   function rememberObj(k, v) { remember(k, JSON.stringify(v)); }
   function nowMs() { return new Date().getTime(); }
-
+ 
   function t(key, vars) {
     var s = (T[S.lang] && T[S.lang][key]) || T.en[key] || key;
     if (vars) { for (var k in vars) { s = s.split("{" + k + "}").join(String(vars[k])); } }
     return s;
   }
-
+ 
   function two(n) { return (n < 10 ? "0" : "") + n; }
   function parts(w) {
     return { y: +w.substr(0, 4), mo: +w.substr(5, 2), d: +w.substr(8, 2), h: +w.substr(11, 2), mi: +w.substr(14, 2) };
@@ -323,9 +407,9 @@
   }
   function firstName(n) { return String(n || "").split(" ")[0]; }
   function digits(v) { return String(v || "").replace(/[^0-9]/g, ""); }
-
+ 
   /* ---------- the same button rules the Sheet uses, for when there is no signal ---------- */
-
+ 
   function actionsFor(local, type, code) {
     if (!local || local.status === "out" || !local.at) { return ["in"]; }
     if (local.at.code !== code) { return ["switch", "out_other"]; }
@@ -350,9 +434,9 @@
       actions: actionsFor(L, S.me ? S.me.type : "Staff", S.code), nextBreakPaid: true, paidUntil: "", stale: false, guess: true
     };
   }
-
+ 
   /* ---------- drawing ---------- */
-
+ 
   function render() {
     var I = S.info || {};
     document.documentElement.lang = S.lang;
@@ -361,7 +445,7 @@
     el("biz").textContent = I.biz || "";
     el("prop").textContent = I.prop ? I.prop.name : "";
     document.title = (I.prop ? I.prop.name + " - " : "") + (I.biz || "Time Clock");
-
+ 
     var m = S.msg;
     if (!m && S.offline && S.view === "main") { m = { key: "OFFLINE", kind: "warn" }; }
     if (m) {
@@ -371,18 +455,20 @@
     show("msg", !!m);
     show("retry", !!S.retry);
     el("retry").textContent = t("retry");
-
+ 
     show("pinView", S.view === "pin");
     show("mainView", S.view === "main");
     show("doneView", S.view === "done");
-
+    show("mailView", S.view === "mail");
+ 
     var status = "";
     if (S.view === "loading") { status = t("loading"); }
     if (S.view === "pin") { drawPin(I); }
     if (S.view === "main") { status = drawMain(I); }
     if (S.view === "done") { status = drawDone(I); }
+    if (S.view === "mail") { status = drawMail(); }
     el("status").textContent = status;
-
+ 
     show("office", !!I.phone && S.view !== "loading");
     if (I.phone) {
       var o = el("office");
@@ -393,7 +479,7 @@
       o.appendChild(a);
     }
   }
-
+ 
   function drawPin(I) {
     var n = I.pinLen || 4;
     el("pinLabel").textContent = t("pinLabel", { n: n });
@@ -402,20 +488,20 @@
     el("pinGo").textContent = S.busy ? t("loading") : t("pinGo");
     el("pinGo").disabled = !!S.busy;
   }
-
+ 
   function drawMain(I) {
     var st = I.state, name = firstName(I.worker.name);
     el("hello").textContent = t("hello", { name: name });
     el("notMe").textContent = t("notMe", { name: name });
-
+ 
     var host = el("buttons");
     host.innerHTML = "";
     for (var i = 0; i < st.actions.length; i++) { host.appendChild(button(st.actions[i], st, i, I.worker.type)); }
-
+ 
     var leaving = st.actions.indexOf("out") !== -1 || st.actions.indexOf("out_other") !== -1 || st.actions.indexOf("switch") !== -1;
     show("noteWrap", leaving && I.askNote !== false);
     el("noteLabel").textContent = t("noteLabel");
-
+ 
     var notes = [];
     if (!st.guess) {
       if (st.actions.indexOf("lunch_start") !== -1 && !I.lunchPaid) { notes.push(t("n_lunch")); }
@@ -428,21 +514,24 @@
     }
     el("notes").textContent = notes.join(" ");
     show("notes", notes.length > 0);
-
+ 
     var g = el("gps");
     g.className = "gps" + (S.gpsState === "ok" ? " ok" : S.gpsState === "off" ? " off" : "");
     g.textContent = S.gpsState === "desk" ? t("deskTag") : S.gpsState === "ok" ? t("gpsOk") : S.gpsState === "off" ? t("gpsOff") : t("gpsWait");
     teamLink("team", st.status !== "out" && !st.guess, st.at ? st.at.code : S.code);
-
+ 
     el("waiting").textContent = t("waiting", { n: S.queue.length });
     show("waiting", S.queue.length > 0);
-
+    el("mailBtn").textContent = t("b_mail");
+    el("mailBtn").disabled = !!S.busy;
+    show("mailBtn", !!I.mail && !S.offline && !st.guess);
+ 
     if (st.status === "out") { return st.stale ? t("stale") : t("st_out"); }
     var since = when(st.since, I.now || phoneWall(nowMs()));
     if (!st.here) { return t("st_other", { p: st.at.name, t: since }); }
     return t("st_" + st.status, { t: since });
   }
-
+ 
   // The LAS team goes on from the clock to the LAS Team page, at the property they are clocked in to.
   function teamLink(id, on, code) {
     var a = el(id), base = String((S.info && S.info.team) || "");
@@ -451,7 +540,7 @@
     a.textContent = t("openDay");
     a.hidden = false;
   }
-
+ 
   function button(action, st, index, type) {
     var b = document.createElement("button");
     b.type = "button";
@@ -468,11 +557,12 @@
     b.onclick = function () { act(action); };
     return b;
   }
-
+ 
   function drawDone(I) {
     var d = S.done, host = el("lines");
     host.innerHTML = "";
     var rows = [];
+    if (d.mail) { return drawMailDone(I, d, host); }
     if (d.saved) { rows.push([t("l_what"), t("d_" + d.action)]); }
     rows.push([t("l_time"), day(d.time) + ", " + clock(d.time)]);
     rows.push([t("l_prop"), d.prop]);
@@ -500,9 +590,9 @@
     if (d.saved && !d.sent) { return t("d_saved"); }
     return t("d_" + d.action);
   }
-
+ 
   /* ---------- talking to the Sheet ---------- */
-
+ 
   function post(body, onAnswer, onFail, limitMs) {
     var ctrl = (typeof AbortController !== "undefined") ? new AbortController() : null;
     var timer = setTimeout(function () { if (ctrl) { ctrl.abort(); } }, limitMs || 30000);
@@ -518,12 +608,12 @@
       })
       .then(null, function () { clearTimeout(timer); onFail(); });
   }
-
+ 
   function keep(r) {
     // Keep what the answer says about the business, property, worker and status,
     // and save enough of it on the phone to work later with no signal.
     var I = S.info || {};
-    var keys = ["biz", "phone", "pinLen", "lunchPaid", "breakMin", "askNote", "prop", "worker", "state", "now", "team"];
+    var keys = ["biz", "phone", "pinLen", "lunchPaid", "breakMin", "askNote", "prop", "worker", "state", "now", "team", "mail"];
     for (var i = 0; i < keys.length; i++) { if (r[keys[i]] !== undefined) { I[keys[i]] = r[keys[i]]; } }
     S.info = I;
     if (r.tok) { S.tok = r.tok; remember("tok", r.tok); }
@@ -535,15 +625,15 @@
       rememberObj("local", S.local);
     }
   }
-
+ 
   function pinTrouble(code) { return code === "BAD_PIN" || code === "INACTIVE" || code === "PIN_SETUP" || code === "LOCKED"; }
-
+ 
   function toPin(code) {
     if (code !== "LOCKED") { forget("pin"); forget("tok"); S.pin = ""; S.tok = ""; }
     el("pin").value = "";
     S.view = "pin"; S.msg = { key: code, kind: "bad" }; S.retry = null; S.offline = false; render();
   }
-
+ 
   function boot() {
     S.view = "loading"; S.msg = null; S.retry = null; render();
     post({ op: "boot", p: S.code }, function (r) {
@@ -556,7 +646,7 @@
       S.view = "stop"; S.msg = { key: "OFF_NEW", kind: "bad" }; S.retry = boot; render();
     });
   }
-
+ 
   // What this phone remembers from earlier visits, for when the Sheet cannot be reached.
   function useSaved() {
     var cfg = recallObj("cfg", {}), names = recallObj("props", {});
@@ -565,14 +655,14 @@
       prop: { code: S.code, name: names[S.code] || S.code }, worker: S.me, now: ""
     };
   }
-
+ 
   function goOffline() {
     useSaved();
     S.info.state = localState();
     S.offline = true; S.busy = ""; S.view = "main"; S.msg = null; S.retry = null;
     render();
   }
-
+ 
   // Send anything saved on the phone, then ask the Sheet for the current status.
   function refresh(fromPinForm) {
     if (!mine().length) { getState(fromPinForm); return; }
@@ -583,14 +673,14 @@
       getState(fromPinForm);
     });
   }
-
+ 
   // The saved punches that belong to the person signed in on this phone right now.
   function mine() {
     var out = [], who = S.me ? S.me.name : "";
     for (var i = 0; i < S.queue.length; i++) { if (!S.queue[i].who || S.queue[i].who === who) { out.push(S.queue[i]); } }
     return out;
   }
-
+ 
   function sendQueue(after) {
     if (S.sending) { return; }
     S.sending = true;
@@ -614,7 +704,7 @@
       after("ok", n);
     }, function () { S.sending = false; after("net"); }, 20000);
   }
-
+ 
   function getState(fromPinForm) {
     S.busy = fromPinForm ? "pin" : "";
     if (!fromPinForm) { S.view = "loading"; S.retry = null; S.msg = null; }
@@ -639,7 +729,7 @@
       S.view = "stop"; S.msg = { key: "OFF_NEW", kind: "bad" }; S.retry = function () { refresh(false); }; render();
     });
   }
-
+ 
   function submitPin() {
     if (S.busy) { return; }
     var n = (S.info && S.info.pinLen) || 4;
@@ -652,13 +742,13 @@
     S.pin = v; S.msg = null;
     getState(true);
   }
-
+ 
   function newId() {
     var s = "", abc = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
     for (var i = 0; i < 20; i++) { s += abc.charAt(Math.floor(Math.random() * abc.length)); }
     return s;
   }
-
+ 
   function act(action) {
     if (S.busy) { return; }
     var tapped = nowMs();
@@ -678,9 +768,9 @@
       send(action);
     })();
   }
-
+ 
   function leaving(action) { return action === "out" || action === "out_other" || action === "switch"; }
-
+ 
   function send(action) {
     var st = S.info.state;
     var body = { op: "punch", p: S.code, pin: S.pin, tok: S.tok, action: action, rid: S.pending.rid, desk: S.desk };
@@ -707,7 +797,7 @@
       saveOnPhone(action, body);
     }, 15000);
   }
-
+ 
   function saveOnPhone(action, body) {
     var item = { rid: body.rid, p: S.code, action: action, t: S.pending.t, at: body.at || "", who: S.me ? S.me.name : "", desk: S.desk };
     if (body.lat !== undefined) { item.lat = body.lat; item.lng = body.lng; item.acc = body.acc; }
@@ -722,7 +812,7 @@
     S.view = "done"; S.msg = null; render();
     window.scrollTo(0, 0);
   }
-
+ 
   // Runs every 20 seconds and when the phone says the signal is back.
   function trySend() {
     if (!mine().length || S.busy || S.sending || !S.pin || !S.me) { return; }
@@ -739,7 +829,196 @@
       if (S.view === "main") { S.msg = n ? { key: "SENT", vars: { n: n }, kind: "good" } : null; S.info.state = S.info.state || localState(); render(); }
     });
   }
-
+ 
+  /* ---------- Mail collected ---------- */
+ 
+  function line2(host, label, value) {
+    var line = document.createElement("div");
+    line.className = "line2";
+    var b = document.createElement("b");
+    b.textContent = label;
+    line.appendChild(b);
+    line.appendChild(document.createTextNode(value));
+    host.appendChild(line);
+  }
+ 
+  function drawMailDone(I, d, host) {
+    line2(host, t("l_send"), d.sendId);
+    line2(host, t("l_pieces"), String(d.pieces));
+    line2(host, t("l_photos"), String(d.photos));
+    line2(host, t("l_time"), day(d.time) + ", " + clock(d.time));
+    line2(host, t("l_prop"), d.prop);
+    line2(host, t("l_who"), I.worker.name);
+    el("doneNote").textContent = t("mailNote");
+    el("doneNote").className = "box good";
+    show("doneNote", true);
+    show("team2", false);
+    el("back").textContent = t("back");
+    return t("d_mail");
+  }
+ 
+  function openMail() {
+    if (S.busy) { return; }
+    if (S.offline) { S.msg = { key: "m_offline", kind: "warn" }; render(); return; }
+    if (!S.mail) { S.mail = { photos: [], send: "", sentUpTo: 0, busy: "", progress: "" }; el("m_pieces").value = ""; el("m_note").value = ""; }
+    S.view = "mail"; S.msg = null; S.retry = null; render();
+    window.scrollTo(0, 0);
+  }
+ 
+  function drawMail() {
+    var M = S.mail;
+    el("m_title").textContent = t("m_title");
+    el("m_intro").textContent = t("m_intro");
+    el("m_piecesLabel").textContent = t("m_pieces");
+    el("m_photosLabel").textContent = t("m_photos");
+    el("m_photosHint").textContent = t("m_photosHint", { n: M.photos.length });
+    el("m_add").textContent = M.photos.length ? t("m_addMore") : t("m_add");
+    el("m_noteLabel").textContent = t("m_note");
+    el("m_send").textContent = t("m_send");
+    el("m_cancel").textContent = t("m_cancel");
+    var busy = !!M.busy;
+    el("m_add").disabled = busy || M.photos.length >= 30;
+    el("m_send").disabled = busy;
+    el("m_cancel").disabled = busy;
+    el("m_pieces").disabled = busy;
+    el("m_progress").textContent = M.progress;
+    show("m_progress", !!M.progress);
+    var host = el("m_shots");
+    host.innerHTML = "";
+    for (var i = 0; i < M.photos.length; i++) { host.appendChild(shot(i, busy)); }
+    return t("m_title");
+  }
+ 
+  function shot(i, busy) {
+    var box = document.createElement("div");
+    box.className = "shot";
+    var img = document.createElement("img");
+    img.src = "data:image/jpeg;base64," + S.mail.photos[i];
+    img.alt = "";
+    box.appendChild(img);
+    var n = document.createElement("span");
+    n.textContent = String(i + 1);
+    box.appendChild(n);
+    if (!busy) {
+      var x = document.createElement("button");
+      x.type = "button";
+      x.textContent = "X";
+      x.setAttribute("aria-label", "Remove photo " + (i + 1));
+      x.onclick = function () { dropPhoto(i); };
+      box.appendChild(x);
+    }
+    return box;
+  }
+ 
+  // Changing the photos after a try makes it a new send, so nothing is mixed with photos already sent.
+  function freshSend() { S.mail.send = ""; S.mail.sentUpTo = 0; }
+ 
+  function dropPhoto(i) {
+    S.mail.photos.splice(i, 1);
+    freshSend();
+    render();
+  }
+ 
+  // Photos from a phone camera are large. Each is made smaller here (at most 1600 pixels on its long side)
+  // so it can be sent over a weak signal and still be read clearly.
+  function addPhoto(file) {
+    if (!file) { return; }
+    var M = S.mail;
+    M.busy = "shrink"; M.progress = t("m_shrinking"); render();
+    var url = "";
+    try { url = URL.createObjectURL(file); } catch (e) { url = ""; }
+    var img = new Image();
+    img.onload = function () {
+      var w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+      var k = Math.min(1, 1600 / Math.max(w, h, 1));
+      var cv = document.createElement("canvas");
+      cv.width = Math.max(1, Math.round(w * k)); cv.height = Math.max(1, Math.round(h * k));
+      var g = cv.getContext("2d");
+      g.fillStyle = "#ffffff"; g.fillRect(0, 0, cv.width, cv.height);
+      g.drawImage(img, 0, 0, cv.width, cv.height);
+      var data = cv.toDataURL("image/jpeg", 0.72);
+      try { URL.revokeObjectURL(url); } catch (e) {}
+      M.busy = ""; M.progress = "";
+      var at = data.indexOf(",");
+      if (data.indexOf("data:image/jpeg") !== 0 || at < 0) { S.msg = { key: "BAD_PHOTO", kind: "bad" }; render(); return; }
+      M.photos.push(data.slice(at + 1));
+      freshSend();
+      S.msg = null; render();
+    };
+    img.onerror = function () {
+      try { URL.revokeObjectURL(url); } catch (e) {}
+      M.busy = ""; M.progress = "";
+      S.msg = { key: "BAD_PHOTO", kind: "bad" }; render();
+    };
+    img.src = url;
+  }
+ 
+  function mailCheck() {
+    var raw = String(el("m_pieces").value || "").trim();
+    if (!/^[0-9]{1,2}$/.test(raw) || +raw < 1 || +raw > 60) { return "BAD_PIECES"; }
+    if (!S.mail.photos.length) { return "NO_PHOTOS"; }
+    if (S.mail.photos.length > 30) { return "TOO_MANY"; }
+    return "";
+  }
+ 
+  function mailStop(code) {
+    S.mail.busy = ""; S.mail.progress = "";
+    S.msg = { key: T.en[code] ? code : "SERVER", kind: "bad" };
+    render();
+    window.scrollTo(0, 0);
+  }
+ 
+  function sendMail() {
+    var M = S.mail;
+    if (M.busy) { return; }
+    var bad = mailCheck();
+    if (bad) { S.msg = { key: bad, kind: "bad" }; render(); window.scrollTo(0, 0); return; }
+    if (!M.send) { M.send = newId(); M.sentUpTo = 0; }
+    M.busy = "send"; S.msg = null;
+    nextPhoto();
+  }
+ 
+  function nextPhoto() {
+    var M = S.mail, n = M.photos.length;
+    if (M.sentUpTo >= n) { finishMail(); return; }
+    var i = M.sentUpTo + 1;
+    M.progress = t("m_sending", { i: i, n: n }); render();
+    post({ op: "mailphoto", p: S.code, pin: S.pin, tok: S.tok, send: M.send, n: i, data: M.photos[i - 1] }, function (r) {
+      keep(r);
+      if (!r.ok) {
+        if (pinTrouble(r.code)) { S.mail.busy = ""; toPin(r.code); return; }
+        mailStop(r.code); return;
+      }
+      M.sentUpTo = i;
+      nextPhoto();
+    }, function () { mailStop("MAIL_NET"); }, 90000);
+  }
+ 
+  function finishMail() {
+    var M = S.mail;
+    M.progress = t("m_finishing"); render();
+    var body = {
+      op: "mail", p: S.code, pin: S.pin, tok: S.tok, rid: M.send, pieces: String(el("m_pieces").value || "").trim(),
+      photos: M.photos.length, note: String(el("m_note").value || "").trim()
+    };
+    post(body, function (r) {
+      keep(r);
+      if (r.ok && r.mailDone) {
+        S.mail = null;
+        el("m_pieces").value = ""; el("m_note").value = "";
+        var d = r.mailDone;
+        S.done = { mail: true, sendId: d.sendId, pieces: d.pieces, photos: d.photos, time: d.time, prop: d.prop };
+        S.view = "done"; S.msg = null; render();
+        window.scrollTo(0, 0);
+        return;
+      }
+      if (pinTrouble(r.code)) { S.mail.busy = ""; toPin(r.code); return; }
+      // A photo the Sheet cannot find is sent again from the start, under the same send.
+      if (r.code === "MISSING_PHOTO") { M.sentUpTo = 0; }
+      mailStop(r.code || "SERVER");
+    }, function () { mailStop("MAIL_NET"); }, 60000);
+  }
+ 
   function locate() {
     if (S.desk) { S.gps = null; S.gpsState = "desk"; S.gpsAt = nowMs(); return; }
     if (!navigator.geolocation) { S.gpsState = "off"; return; }
@@ -753,12 +1032,12 @@
       if (S.view === "main" && !S.busy) { render(); }
     }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
   }
-
+ 
   function start() {
     var saved = recall("lang");
     var nav = String(navigator.language || "").toLowerCase();
     S.lang = saved === "es" || saved === "en" ? saved : (nav.indexOf("es") === 0 ? "es" : "en");
-
+ 
     el("lang").onclick = function () { S.lang = S.lang === "es" ? "en" : "es"; remember("lang", S.lang); render(); };
     el("pinGo").onclick = submitPin;
     el("pin").oninput = function () {
@@ -771,18 +1050,27 @@
     el("pin").onkeydown = function (ev) { if (ev.key === "Enter") { submitPin(); } };
     el("retry").onclick = function () { if (S.retry) { S.retry(); } };
     el("back").onclick = function () { locate(); refresh(false); };
+    el("mailBtn").onclick = openMail;
+    el("m_add").onclick = function () { el("m_file").value = ""; el("m_file").click(); };
+    el("m_file").onchange = function () { var f = el("m_file").files; addPhoto(f && f.length ? f[0] : null); };
+    el("m_send").onclick = sendMail;
+    el("m_cancel").onclick = function () { S.mail = null; S.view = "main"; S.msg = null; render(); };
+    el("m_pieces").oninput = function () {
+      var v = String(el("m_pieces").value || ""), d = digits(v).slice(0, 2);
+      if (d !== v) { el("m_pieces").value = d; }
+    };
     el("notMe").onclick = function () {
       // Punches still waiting on this phone stay saved under the name of the person who made them.
       forget("pin"); forget("tok"); forget("me"); forget("local");
       S.pin = ""; S.tok = ""; S.me = null; S.local = null; S.offline = false;
       el("pin").value = ""; S.view = "pin"; S.msg = null; render(); el("pin").focus();
     };
-
+ 
     // The saved copy of this page is what opens when there is no signal.
     if ("serviceWorker" in navigator) {
       try { navigator.serviceWorker.register("sw.js").then(null, function () {}); } catch (e) {}
     }
-
+ 
     // Coming back to a page that was left open: show the current status, not the old one.
     document.addEventListener("visibilitychange", function () {
       if (document.visibilityState !== "visible" || S.busy || !S.pin) { return; }
@@ -790,14 +1078,14 @@
     });
     window.addEventListener("online", trySend);
     setInterval(trySend, 20000);
-
+ 
     var q = String(window.location.search || "");
     // A desk code carries d=1: office time for the property, scanned at a workstation by the LAS team.
     S.desk = /[?&]d=1(&|$)/.test(q);
     var m = /[?&]p=([^&#]*)/.exec(q);
     S.code = m ? decodeURIComponent(m[1]).toUpperCase().replace(/[^A-Z0-9]/g, "") : "";
     if (!S.code) { S.view = "stop"; S.msg = { key: "noCode", kind: "warn" }; render(); return; }
-
+ 
     locate();
     S.pin = recall("pin");
     S.tok = recall("tok");
@@ -806,7 +1094,7 @@
     S.queue = recallObj("queue", []);
     if (S.pin) { refresh(false); } else { boot(); }
   }
-
+ 
   start();
 </script>
 </body>
